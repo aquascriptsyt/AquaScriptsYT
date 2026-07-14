@@ -1,7 +1,7 @@
 return function(hub)
     --[[
-        AquaScriptsYT - Universal Script
-        Ported from ARASAKA Inc.
+        AquaScriptsYT - Keyboard Escape
+        Universal Script with Auto Rebirth & Farm Last Zone
     ]]
 
     local Players = game:GetService("Players")
@@ -18,7 +18,9 @@ return function(hub)
         Noclip = false,
         AntiAFK = true,
         Frozen = false,
-        AutoWalking = false
+        AutoWalking = false,
+        AutoRebirth = false,
+        FarmLastZone = false
     }
 
     local keybinds = {
@@ -32,7 +34,10 @@ return function(hub)
         Speed4x = Enum.KeyCode.LeftAlt
     }
 
+    -- ============================================
     -- Anti-AFK
+    -- ============================================
+
     LocalPlayer.Idled:Connect(function()
         if playerState.AntiAFK then
             VirtualUser:CaptureController()
@@ -40,7 +45,10 @@ return function(hub)
         end
     end)
 
+    -- ============================================
     -- Freeze / Unfreeze
+    -- ============================================
+
     local function toggleFreeze(state)
         local char = LocalPlayer.Character
         if not char then return end
@@ -65,7 +73,10 @@ return function(hub)
         end
     end
 
-    -- Noclip loop
+    -- ============================================
+    -- Noclip
+    -- ============================================
+
     RunService.Stepped:Connect(function()
         if playerState.Noclip and LocalPlayer.Character then
             for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
@@ -76,7 +87,10 @@ return function(hub)
         end
     end)
 
-    -- Fly logic
+    -- ============================================
+    -- Fly Logic
+    -- ============================================
+
     local function startFly()
         local char = LocalPlayer.Character
         if not char then return end
@@ -137,7 +151,120 @@ return function(hub)
         end)
     end
 
+    -- ============================================
+    -- Auto Rebirth
+    -- ============================================
+
+    local function startAutoRebirth()
+        task.spawn(function()
+            while playerState.AutoRebirth do
+                pcall(function()
+                    local rebirthRemote = ReplicatedStorage:FindFirstChild("Remotes")
+                    if rebirthRemote then
+                        local rebirth = rebirthRemote:FindFirstChild("Rebirth")
+                        if rebirth then
+                            rebirth:FireServer()
+                        end
+                    end
+                    task.wait(1)
+                end)
+                task.wait()
+            end
+        end)
+    end
+
+    -- ============================================
+    -- Farm Last Zone (Wins Farm)
+    -- ============================================
+
+    local farmLastZoneRunning = false
+    local lastZonePosition = CFrame.new(-14001, 765, 3067)
+    local teleportDistance = 250
+    local heartbeatConnection = nil
+
+    local function startFarmLastZone()
+        if farmLastZoneRunning then return end
+        farmLastZoneRunning = true
+
+        task.spawn(function()
+            while playerState.FarmLastZone do
+                pcall(function()
+                    local char = LocalPlayer.Character
+                    if not char then return end
+
+                    local root = char:FindFirstChild("HumanoidRootPart")
+                    if not root then return end
+
+                    -- Enable noclip on all parts
+                    for _, part in ipairs(char:GetDescendants()) do
+                        if part:IsA("BasePart") and part.CanCollide then
+                            part.CanCollide = false
+                        end
+                    end
+
+                    -- Teleport to last zone
+                    local distance = (lastZonePosition.Position - root.Position).Magnitude
+
+                    if distance < 0.5 then
+                        root.CFrame = lastZonePosition
+                        farmLastZoneRunning = false
+                        return
+                    end
+
+                    root.AssemblyLinearVelocity = Vector3.zero
+
+                    -- Smooth teleport
+                    local function teleportLoop(deltaTime)
+                        if not playerState.FarmLastZone then
+                            heartbeatConnection:Disconnect()
+                            heartbeatConnection = nil
+                            farmLastZoneRunning = false
+                            return
+                        end
+
+                        local char = LocalPlayer.Character
+                        if not char then
+                            heartbeatConnection:Disconnect()
+                            heartbeatConnection = nil
+                            farmLastZoneRunning = false
+                            return
+                        end
+
+                        local root = char:FindFirstChild("HumanoidRootPart")
+                        if not root then
+                            heartbeatConnection:Disconnect()
+                            heartbeatConnection = nil
+                            farmLastZoneRunning = false
+                            return
+                        end
+
+                        local currentDist = (lastZonePosition.Position - root.Position).Magnitude
+
+                        if currentDist < 0.5 then
+                            root.CFrame = lastZonePosition
+                            heartbeatConnection:Disconnect()
+                            heartbeatConnection = nil
+                            farmLastZoneRunning = false
+                            return
+                        end
+
+                        root.AssemblyLinearVelocity = Vector3.zero
+                        local currentCF = root.CFrame
+                        root.CFrame = currentCF:Lerp(lastZonePosition, math.min(teleportDistance * deltaTime / currentDist, 1))
+                    end
+
+                    heartbeatConnection = RunService.Heartbeat:Connect(teleportLoop)
+                end)
+                task.wait(0.1)
+            end
+            farmLastZoneRunning = false
+        end)
+    end
+
+    -- ============================================
     -- Create Tabs
+    -- ============================================
+
     local mainTab = hub:Tab("Main", "🏠")
     local farmTab = hub:Tab("Auto Farm", "⚡")
     local passTab = hub:Tab("Gamepasses", "⭐")
@@ -149,10 +276,8 @@ return function(hub)
 
     mainTab:Section("Movement Controls")
 
-    -- Jump Power Slider
     mainTab:Slider("Jump Power", {50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500}, 1)
 
-    -- Freeze Toggle
     mainTab:Toggle(
         "Freeze Position [ON]",
         "Freeze Position [OFF]",
@@ -165,14 +290,12 @@ return function(hub)
         end
     )
 
-    -- Freeze Keybind (using button since library doesn't have keybind yet)
     mainTab:Button("Toggle Freeze (Keybind: L)", function()
         playerState.Frozen = not playerState.Frozen
         toggleFreeze(playerState.Frozen)
         hub:Notify("Freeze", playerState.Frozen and "Frozen!" or "Unfrozen!")
     end)
 
-    -- Noclip Toggle
     mainTab:Toggle(
         "Noclip [ON]",
         "Noclip [OFF]",
@@ -188,7 +311,6 @@ return function(hub)
     mainTab:Divider()
     mainTab:Section("Fly Settings")
 
-    -- Fly Toggle
     local flyToggleState = false
     mainTab:Toggle(
         "Fly Enabled [ON]",
@@ -205,7 +327,6 @@ return function(hub)
         end
     )
 
-    -- Fly Keybind (using button)
     mainTab:Button("Toggle Fly (Keybind: F)", function()
         flyToggleState = not flyToggleState
         playerState.Flying = flyToggleState
@@ -217,8 +338,84 @@ return function(hub)
         end
     end)
 
-    -- Fly Speed Slider
     mainTab:Slider("Fly Speed", {10, 25, 50, 75, 100, 150, 200, 300, 400, 500}, 3)
+
+    mainTab:Divider()
+    mainTab:Section("Auto Features")
+
+    -- Auto Rebirth Toggle
+    mainTab:Toggle(
+        "Auto Rebirth [ON]",
+        "Auto Rebirth [OFF]",
+        function()
+            playerState.AutoRebirth = true
+            startAutoRebirth()
+            hub:Notify("Auto Rebirth", "Started!")
+            return true
+        end,
+        function()
+            playerState.AutoRebirth = false
+            hub:Notify("Auto Rebirth", "Stopped!")
+        end
+    )
+
+    -- Farm Last Zone Toggle with Warning Popup
+    local farmLastZoneBtn = nil
+    local farmLastZoneEnabled = false
+
+    local function createFarmLastZoneToggle()
+        farmLastZoneBtn = mainTab:Toggle(
+            "Farm Last Zone [ON]",
+            "Farm Last Zone [OFF]",
+            function()
+                -- Show warning popup
+                local warningTab = hub:Tab("⚠️ Warning", "⚠️")
+                warningTab:Section("Warning")
+                warningTab:Label("Farm Last Zone may cause you to get kicked!", Color3.fromRGB(255, 200, 100))
+                warningTab:Label("Proceed at your own risk.", Color3.fromRGB(255, 200, 100))
+                warningTab:Label("", Color3.fromRGB(255, 255, 255))
+
+                local accepted = false
+
+                warningTab:Button("✅ Accept (Enable)", function()
+                    accepted = true
+                    playerState.FarmLastZone = true
+                    farmLastZoneEnabled = true
+                    startFarmLastZone()
+                    hub:Notify("Farm Last Zone", "Enabled! (Use at your own risk)")
+                    -- Remove warning tab
+                    warningTab.Frame.Visible = false
+                end)
+
+                warningTab:Button("❌ Decline (Disable)", function()
+                    accepted = false
+                    playerState.FarmLastZone = false
+                    farmLastZoneEnabled = false
+                    hub:Notify("Farm Last Zone", "Disabled!")
+                    -- Remove warning tab
+                    warningTab.Frame.Visible = false
+                    -- Disable the toggle button by setting it back to OFF state
+                    if farmLastZoneBtn and farmLastZoneBtn.SetState then
+                        farmLastZoneBtn:SetState(false)
+                    end
+                end)
+
+                return false -- Don't enable immediately, wait for user choice
+            end,
+            function()
+                playerState.FarmLastZone = false
+                farmLastZoneEnabled = false
+                if heartbeatConnection then
+                    heartbeatConnection:Disconnect()
+                    heartbeatConnection = nil
+                end
+                farmLastZoneRunning = false
+                hub:Notify("Farm Last Zone", "Stopped!")
+            end
+        )
+    end
+
+    createFarmLastZoneToggle()
 
     -- ============================================
     -- Auto Farm Tab
@@ -255,6 +452,32 @@ return function(hub)
         function()
             playerState.AutoWalking = false
             hub:Notify("Auto Run", "Stopped!")
+        end
+    )
+
+    farmTab:Toggle(
+        "Speed Farm [ON]",
+        "Speed Farm [OFF]",
+        function()
+            task.spawn(function()
+                while true do
+                    pcall(function()
+                        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+                        if remotes then
+                            local updateSpeed = remotes:FindFirstChild("UpdateSpeed")
+                            if updateSpeed then
+                                updateSpeed:FireServer("Walking")
+                            end
+                        end
+                    end)
+                    task.wait(0.5)
+                end
+            end)
+            hub:Notify("Speed Farm", "Started!")
+            return true
+        end,
+        function()
+            hub:Notify("Speed Farm", "Stopped!")
         end
     )
 
@@ -325,5 +548,5 @@ return function(hub)
 
     hub:Notify("Support Needed!", "Join our Discord for updates and help: discord.gg/nQr2ZFE6Ae", 10)
     hub:Notify("System Note", "Anti-AFK is auto-toggled. Enjoy 24/7 farming!", 5)
-    hub:Notify("AquaScriptsYT", "Hub loaded successfully!", 3)
+    hub:Notify("Keyboard Escape", "Hub loaded successfully!", 3)
 end
