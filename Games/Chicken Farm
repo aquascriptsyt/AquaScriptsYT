@@ -1,31 +1,37 @@
 return function(hub)
+    --[[
+        AquaScriptsYT - Chicken Controller
+        Ported from Chicken Farm
+    ]]
+
     local Players = game:GetService("Players")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local UserInputService = game:GetService("UserInputService")
     local LocalPlayer = Players.LocalPlayer
-    
+
     local EggCollectorEnabled = false
     local LuckyBlockCollectorEnabled = false
     local EggsFolder = workspace:WaitForChild("Eggs")
-    
+
+    -- Egg/Lucky Block Collector
     task.spawn(function()
         while task.wait(0.1) do
             if not EggCollectorEnabled and not LuckyBlockCollectorEnabled then
                 continue
             end
-            
+
             local character = LocalPlayer.Character
             if not character then
                 continue
             end
-            
+
             local root = character:FindFirstChild("HumanoidRootPart")
             if not root then
                 continue
             end
-            
+
             local rootCF = root.CFrame
-            
+
             for _, object in ipairs(EggsFolder:GetChildren()) do
                 if object:IsA("Model") then
                     if EggCollectorEnabled and object:GetAttribute("Tier") then
@@ -37,9 +43,10 @@ return function(hub)
             end
         end
     end)
-    
+
+    -- Remote Setup
     local RemoteFunction = ReplicatedStorage:WaitForChild("Paper"):WaitForChild("Remotes"):WaitForChild("__remotefunction")
-    
+
     local function FireRemote(...)
         local args = {...}
         local ok, result = pcall(function()
@@ -50,19 +57,24 @@ return function(hub)
         end
         return ok, result
     end
-    
+
+    -- Create Tabs
     local economyTab = hub:Tab("Economy", "💰")
     local eggsTab = hub:Tab("Eggs", "🥚")
     local chickensTab = hub:Tab("Chickens", "🐔")
     local miscTab = hub:Tab("Misc", "🔗")
-    
+
+    -- ============================================
+    -- Economy Tab
+    -- ============================================
+
     economyTab:Section("Economy Controls")
-    
+
     economyTab:Button("Collect Cash", function()
         FireRemote("Collect Cash")
         hub:Notify("Chicken Controller", "Cash collected!")
     end)
-    
+
     economyTab:Toggle(
         "Auto Collect Cash [ON]",
         "Auto Collect Cash [OFF]",
@@ -80,14 +92,14 @@ return function(hub)
             hub:Notify("Chicken Controller", "Auto collect cash stopped.")
         end
     )
-    
+
     economyTab:Divider()
-    
+
     economyTab:Button("Upgrade Process Level", function()
         FireRemote("Upgrade Process Level")
         hub:Notify("Chicken Controller", "Upgraded!")
     end)
-    
+
     economyTab:Toggle(
         "Auto Upgrade [ON]",
         "Auto Upgrade [OFF]",
@@ -105,14 +117,18 @@ return function(hub)
             hub:Notify("Chicken Controller", "Auto upgrade stopped.")
         end
     )
-    
+
+    -- ============================================
+    -- Eggs Tab
+    -- ============================================
+
     eggsTab:Section("Egg Controls")
-    
+
     eggsTab:Button("Deposit Eggs", function()
         FireRemote("Deposit Eggs")
         hub:Notify("Chicken Controller", "Eggs deposited!")
     end)
-    
+
     eggsTab:Toggle(
         "Auto Deposit Eggs [ON]",
         "Auto Deposit Eggs [OFF]",
@@ -130,9 +146,9 @@ return function(hub)
             hub:Notify("Chicken Controller", "Auto deposit stopped.")
         end
     )
-    
+
     eggsTab:Divider()
-    
+
     eggsTab:Toggle(
         "Egg Collector [ON]",
         "Egg Collector [OFF]",
@@ -146,7 +162,7 @@ return function(hub)
             hub:Notify("Chicken Controller", "Egg collector disabled.")
         end
     )
-    
+
     eggsTab:Toggle(
         "Auto Collect Lucky Blocks [ON]",
         "Auto Collect Lucky Blocks [OFF]",
@@ -160,11 +176,15 @@ return function(hub)
             hub:Notify("Chicken Controller", "Lucky block collector disabled.")
         end
     )
-    
+
+    -- ============================================
+    -- Chickens Tab
+    -- ============================================
+
     chickensTab:Section("Chicken Controls")
-    
+
     local chickenAmount = chickensTab:Dropdown("Select Amount", {1, 5, 25, 100})
-    
+
     chickensTab:Button("Buy Chickens", function()
         local amt = chickenAmount()
         if not amt then
@@ -174,7 +194,7 @@ return function(hub)
         FireRemote("Buy Chickens", amt)
         hub:Notify("Chicken Controller", "Bought " .. tostring(amt) .. " chickens!")
     end)
-    
+
     chickensTab:Toggle(
         "Auto Buy Chickens [ON]",
         "Auto Buy Chickens [OFF]",
@@ -197,14 +217,14 @@ return function(hub)
             hub:Notify("Chicken Controller", "Auto buy stopped.")
         end
     )
-    
+
     chickensTab:Divider()
-    
+
     chickensTab:Button("Merge Chickens", function()
         FireRemote("Merge Chickens")
         hub:Notify("Chicken Controller", "Merged!")
     end)
-    
+
     chickensTab:Toggle(
         "Auto Merge [ON]",
         "Auto Merge [OFF]",
@@ -222,17 +242,25 @@ return function(hub)
             hub:Notify("Chicken Controller", "Auto merge stopped.")
         end
     )
-    
+
+    -- ============================================
+    -- Misc Tab
+    -- ============================================
+
     miscTab:Section("Links")
     miscTab:Button("Copy Discord Invite", function()
         hub:Copy("https://discord.gg/nQr2ZFE6Ae")
         hub:Notify("Chicken Controller", "Discord link copied!")
     end)
-    
+
     miscTab:Section("Info")
     miscTab:Label("Chicken Controller v1.0", Color3.fromRGB(150, 150, 150))
     miscTab:Label("AquaScripts Hub", Color3.fromRGB(100, 180, 255))
-    
+
+    -- ============================================
+    -- Startup Notification
+    -- ============================================
+
     task.wait(1)
     hub:Notify("Chicken Controller", "Loaded successfully!", 3)
 end
