@@ -36,13 +36,13 @@ return function(hub)
     }
 
     -- ============================================
-    -- Popup System
+    -- Popup System (Full Screen Center with Blur)
     -- ============================================
 
     local function createPopup(title, message, acceptText, declineText, onAccept, onDecline)
         local playerGui = LocalPlayer:WaitForChild("PlayerGui")
         
-        -- Blur background
+        -- Blur background (applies to entire screen)
         local blur = Instance.new("BlurEffect")
         blur.Name = "PopupBlur"
         blur.Size = 0
@@ -50,76 +50,96 @@ return function(hub)
         
         -- Tween blur in
         TweenService:Create(blur, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Size = 20
+            Size = 24
         }):Play()
         
-        -- Background overlay
+        -- Full screen overlay
         local overlay = Instance.new("Frame")
         overlay.Name = "PopupOverlay"
         overlay.Size = UDim2.new(1, 0, 1, 0)
+        overlay.Position = UDim2.new(0, 0, 0, 0)
         overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        overlay.BackgroundTransparency = 0.6
+        overlay.BackgroundTransparency = 0.5
         overlay.BorderSizePixel = 0
         overlay.ZIndex = 999
         overlay.Parent = playerGui
         
-        -- Main popup frame
+        -- Main popup frame (centered)
         local popup = Instance.new("Frame")
         popup.Name = "PopupFrame"
-        popup.Size = UDim2.fromOffset(400, 220)
-        popup.Position = UDim2.new(0.5, -200, 0.5, -110)
+        popup.Size = UDim2.fromOffset(420, 240)
+        popup.Position = UDim2.new(0.5, -210, 0.5, -120)
         popup.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
         popup.BorderSizePixel = 0
         popup.ZIndex = 1000
         popup.Parent = overlay
-        Instance.new("UICorner", popup).CornerRadius = UDim.new(0, 12)
+        Instance.new("UICorner", popup).CornerRadius = UDim.new(0, 14)
         
-        -- Stroke
+        -- Glow stroke
         local stroke = Instance.new("UIStroke", popup)
         stroke.Color = Color3.fromRGB(255, 200, 50)
-        stroke.Thickness = 2
+        stroke.Thickness = 2.5
+        stroke.Transparency = 0.3
+        
+        -- Inner glow
+        local innerGlow = Instance.new("Frame", popup)
+        innerGlow.Size = UDim2.new(1, 0, 0, 3)
+        innerGlow.Position = UDim2.new(0, 0, 0, 0)
+        innerGlow.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+        innerGlow.BackgroundTransparency = 0.6
+        innerGlow.BorderSizePixel = 0
+        Instance.new("UICorner", innerGlow).CornerRadius = UDim.new(0, 14)
         
         -- Title
         local titleLabel = Instance.new("TextLabel")
         titleLabel.Size = UDim2.new(1, -30, 0, 40)
-        titleLabel.Position = UDim2.new(0, 15, 0, 15)
+        titleLabel.Position = UDim2.new(0, 15, 0, 18)
         titleLabel.BackgroundTransparency = 1
         titleLabel.Text = title or "⚠️ Warning"
         titleLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
         titleLabel.Font = Enum.Font.GothamBold
-        titleLabel.TextSize = 22
+        titleLabel.TextSize = 24
         titleLabel.TextXAlignment = Enum.TextXAlignment.Left
         titleLabel.ZIndex = 1001
         titleLabel.Parent = popup
         
+        -- Warning icon
+        local icon = Instance.new("TextLabel")
+        icon.Size = UDim2.fromOffset(44, 44)
+        icon.Position = UDim2.new(1, -56, 0, 16)
+        icon.BackgroundTransparency = 1
+        icon.Text = "⚠️"
+        icon.TextSize = 34
+        icon.ZIndex = 1001
+        icon.Parent = popup
+        
+        -- Divider line
+        local divider = Instance.new("Frame")
+        divider.Size = UDim2.new(1, -30, 0, 1)
+        divider.Position = UDim2.new(0, 15, 0, 66)
+        divider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        divider.BorderSizePixel = 0
+        divider.ZIndex = 1001
+        divider.Parent = popup
+        
         -- Message
         local messageLabel = Instance.new("TextLabel")
-        messageLabel.Size = UDim2.new(1, -30, 0, 50)
-        messageLabel.Position = UDim2.new(0, 15, 0, 60)
+        messageLabel.Size = UDim2.new(1, -30, 0, 60)
+        messageLabel.Position = UDim2.new(0, 15, 0, 78)
         messageLabel.BackgroundTransparency = 1
-        messageLabel.Text = message or "This action may cause you to get kicked from the game. Proceed with caution."
+        messageLabel.Text = message or "This action may cause you to get kicked from the game.\nProceed with caution."
         messageLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
         messageLabel.Font = Enum.Font.Gotham
-        messageLabel.TextSize = 14
+        messageLabel.TextSize = 15
         messageLabel.TextWrapped = true
         messageLabel.TextXAlignment = Enum.TextXAlignment.Left
         messageLabel.ZIndex = 1001
         messageLabel.Parent = popup
         
-        -- Warning icon
-        local icon = Instance.new("TextLabel")
-        icon.Size = UDim2.fromOffset(40, 40)
-        icon.Position = UDim2.new(1, -55, 0, 15)
-        icon.BackgroundTransparency = 1
-        icon.Text = "⚠️"
-        icon.TextSize = 30
-        icon.ZIndex = 1001
-        icon.Parent = popup
-        
         -- Button container
         local btnContainer = Instance.new("Frame")
-        btnContainer.Size = UDim2.new(1, -30, 0, 44)
-        btnContainer.Position = UDim2.new(0, 15, 1, -54)
+        btnContainer.Size = UDim2.new(1, -30, 0, 46)
+        btnContainer.Position = UDim2.new(0, 15, 1, -58)
         btnContainer.BackgroundTransparency = 1
         btnContainer.ZIndex = 1001
         btnContainer.Parent = popup
@@ -128,9 +148,9 @@ return function(hub)
         local declineBtn = Instance.new("TextButton")
         declineBtn.Size = UDim2.new(0.45, -5, 1, 0)
         declineBtn.Position = UDim2.new(0, 0, 0, 0)
-        declineBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        declineBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
         declineBtn.Text = declineText or "❌ Decline"
-        declineBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        declineBtn.TextColor3 = Color3.fromRGB(220, 220, 230)
         declineBtn.Font = Enum.Font.GothamBold
         declineBtn.TextSize = 15
         declineBtn.ZIndex = 1002
@@ -138,10 +158,10 @@ return function(hub)
         Instance.new("UICorner", declineBtn).CornerRadius = UDim.new(0, 8)
         
         declineBtn.MouseEnter:Connect(function()
-            declineBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+            declineBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
         end)
         declineBtn.MouseLeave:Connect(function()
-            declineBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+            declineBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
         end)
         
         -- Accept button (right)
@@ -165,11 +185,17 @@ return function(hub)
         end)
         
         -- Popup animation (scale in)
-        popup.Scale = 0.8
+        popup.Scale = 0.7
         popup.BackgroundTransparency = 0.3
-        TweenService:Create(popup, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        TweenService:Create(popup, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             Scale = 1,
             BackgroundTransparency = 0
+        }):Play()
+        
+        -- Also animate overlay fade in
+        overlay.BackgroundTransparency = 0.8
+        TweenService:Create(overlay, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundTransparency = 0.5
         }):Play()
         
         -- Return functions to control the popup
@@ -179,13 +205,14 @@ return function(hub)
                 Size = 0
             }):Play()
             
-            -- Fade out popup
+            -- Fade out overlay
             TweenService:Create(overlay, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 BackgroundTransparency = 1
             }):Play()
             
-            TweenService:Create(popup, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                Scale = 0.8,
+            -- Scale out popup
+            TweenService:Create(popup, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                Scale = 0.7,
                 BackgroundTransparency = 1
             }):Play()
             
@@ -451,7 +478,6 @@ return function(hub)
     -- ============================================
 
     local mainTab = hub:Tab("Main", "🏠")
-    local farmTab = hub:Tab("Auto Farm", "⚡")
     local passTab = hub:Tab("Gamepasses", "⭐")
     local supportTab = hub:Tab("Support", "❤️")
 
@@ -598,70 +624,6 @@ return function(hub)
     end
 
     createFarmLastZoneToggle()
-
-    -- ============================================
-    -- Auto Farm Tab
-    -- ============================================
-
-    farmTab:Section("Automatic Training")
-
-    farmTab:Toggle(
-        "Auto Run [ON]",
-        "Auto Run [OFF]",
-        function()
-            playerState.AutoWalking = true
-            task.spawn(function()
-                while playerState.AutoWalking do
-                    pcall(function()
-                        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-                        if remotes then
-                            local updateSpeed = remotes:FindFirstChild("UpdateSpeed")
-                            if updateSpeed then
-                                updateSpeed:FireServer({ "Walking" })
-                            end
-                        end
-                        local char = LocalPlayer.Character
-                        if char and char:FindFirstChild("Humanoid") then
-                            char.Humanoid:Move(Vector3.new(0, 0, -1), true)
-                        end
-                    end)
-                    task.wait(0.1)
-                end
-            end)
-            hub:Notify("Auto Run", "Started!")
-            return true
-        end,
-        function()
-            playerState.AutoWalking = false
-            hub:Notify("Auto Run", "Stopped!")
-        end
-    )
-
-    farmTab:Toggle(
-        "Speed Farm [ON]",
-        "Speed Farm [OFF]",
-        function()
-            task.spawn(function()
-                while true do
-                    pcall(function()
-                        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-                        if remotes then
-                            local updateSpeed = remotes:FindFirstChild("UpdateSpeed")
-                            if updateSpeed then
-                                updateSpeed:FireServer("Walking")
-                            end
-                        end
-                    end)
-                    task.wait(0.5)
-                end
-            end)
-            hub:Notify("Speed Farm", "Started!")
-            return true
-        end,
-        function()
-            hub:Notify("Speed Farm", "Stopped!")
-        end
-    )
 
     -- ============================================
     -- Gamepasses Tab
