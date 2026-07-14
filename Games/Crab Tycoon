@@ -1,78 +1,90 @@
 return function(hub)
+    --[[
+        AquaScriptsYT - Crab Tycoon
+        Ported from Crab Controller
+    ]]
+
     local Players = game:GetService("Players")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local UserInputService = game:GetService("UserInputService")
     local RunService = game:GetService("RunService")
     local TweenService = game:GetService("TweenService")
-    local VirtualUser = game:GetService("VirtualUser")
     local LocalPlayer = Players.LocalPlayer
-    
+
     local remotes = ReplicatedStorage:WaitForChild("Remotes")
     local MirrorClient = require(ReplicatedStorage.Common.Mirror.MirrorClient)
-    
-    local state = {
-        autoHeroEgg = false,
-        autoCollectCash = false,
-        autoBuyCrab = false,
-        autoMerge = false,
-        autoDepositShells = false,
-        autoSand = false,
-        autoSift = false,
-        autoCoconut = false,
-        autoAppraise = false,
-        currentShopStock = nil
-    }
-    
+    local Formulas = require(ReplicatedStorage.Common.Formulas)
+
+    local autoHeroEgg = false
+    local currentShopStock = nil
+
+    -- ============================================
+    -- Sand Mounds Tracking
+    -- ============================================
+
     local sandMounds = {}
-    local shells = {}
-    local coconuts = {}
-    
-    local function notify(text, duration)
-        duration = duration or 3
-        hub:Notify("Crab Tycoon", text, duration)
-    end
-    
-    local function getRoot()
-        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-        return char:WaitForChild("HumanoidRootPart")
-    end
-    
-    local collectSand = remotes:FindFirstChild("CollectSand")
+
     local spawnSand = remotes:FindFirstChild("SpawnSand")
     local despawnSand = remotes:FindFirstChild("DespawnSand")
-    
-    spawnSand.OnClientEvent:Connect(function(id, pos, amount)
-        sandMounds[id] = { pos = pos, amount = amount or 1 }
+
+    if spawnSand then
+        spawnSand.OnClientEvent:Connect(function(id, pos, amount)
+            sandMounds[id] = { pos = pos, amount = amount or 1 }
+        end)
+    end
+
+    if despawnSand then
+        despawnSand.OnClientEvent:Connect(function(id)
+            sandMounds[id] = nil
+        end)
+    end
+
+    task.spawn(function()
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj.Name == "sandMound" and obj:IsA("BasePart") then
+                sandMounds[tostring(obj)] = { pos = obj.Position, amount = 1 }
+            end
+        end
     end)
-    
-    despawnSand.OnClientEvent:Connect(function(id)
-        sandMounds[id] = nil
+
+    workspace.DescendantAdded:Connect(function(obj)
+        if obj.Name == "sandMound" and obj:IsA("BasePart") then
+            sandMounds[tostring(obj)] = { pos = obj.Position, amount = 1 }
+        end
     end)
-    
+
+    -- ============================================
+    -- Shell Magnet
+    -- ============================================
+
     local shellActive = false
     local magnetDistance = 500
     local magnetDistanceSquared = magnetDistance * magnetDistance
-    local rootPart = nil
-    
-    local function updateRoot()
-        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-        rootPart = char:WaitForChild("HumanoidRootPart")
+    local shells = {}
+    local root = nil
+
+    local function updateRoot(character)
+        root = character:WaitForChild("HumanoidRootPart")
     end
-    updateRoot()
+
+    if LocalPlayer.Character then
+        updateRoot(LocalPlayer.Character)
+    end
+
     LocalPlayer.CharacterAdded:Connect(updateRoot)
-    
+
     local function registerShell(obj)
         if obj:IsA("BasePart") and obj.Name == "RollSphere" then
             table.insert(shells, obj)
         end
     end
-    
+
     for _, obj in ipairs(workspace:GetDescendants()) do
         registerShell(obj)
     end
-    
+
     workspace.DescendantAdded:Connect(registerShell)
-    
+
     workspace.DescendantRemoving:Connect(function(obj)
         for i, shell in ipairs(shells) do
             if shell == obj then
@@ -81,17 +93,17 @@ return function(hub)
             end
         end
     end)
-    
+
     local function startShellScan()
         if shellActive then return end
         shellActive = true
-        
+
         task.spawn(function()
             while shellActive do
-                if rootPart and rootPart.Parent then
-                    local rootPos = rootPart.Position
-                    local targetCFrame = rootPart.CFrame - Vector3.new(0, 2, 0)
-                    
+                if root and root.Parent then
+                    local rootPos = root.Position
+                    local targetCFrame = root.CFrame - Vector3.new(0, 2, 0)
+
                     for i = #shells, 1, -1 do
                         local shell = shells[i]
                         if shell and shell.Parent then
@@ -109,11 +121,191 @@ return function(hub)
             end
         end)
     end
-    
+
     local function stopShellScan()
         shellActive = false
     end
-    
+
+    -- ============================================
+    -- Coconut System
+    -- ============================================
+
+    local coconutActive = false
+    local activeCoconuts = {}
+    local isCollectingCoconuts = false
+    local scanningCoconuts = false
+    local teleportOffset = Vector3.new(0, 2, 0)
+
+    local function getPlayerRoot()
+        local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        return character:FindFirstChild("HumanoidRootPart")
+    end
+
+    local function collectCoconut(coconutObj)
+        if not coconutObj or not coconutObj.Parent then return end
+        if coconutObj:GetAttribute("Collected") then return end
+
+        coconutObj:SetAttribute("Collected", true)
+        activeCoconuts[coconutObj] = nil
+
+        local collectRemote = remotes:FindFirstChild("CollectCoconut")
+        if collectRemote then
+            collectRemote:FireServer()
+        end
+
+        TweenService:Create(coconutObj, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Transparency = 1,
+            Size = coconutObj.Size * 0.05
+        }):Play()
+
+        task.delay(0.2, function()
+            if coconutObj and coconutObj.Parent then
+                coconutObj:Destroy()
+            end
+        end)
+    end
+
+    local function teleportCoconutToPlayer(coconutObj)
+        if not coconutObj or not coconutObj.Parent then return end
+        if coconutObj:GetAttribute("Collected") then return end
+
+        local rootPart = getPlayerRoot()
+        if not rootPart then return end
+
+        local playerPos = rootPart.Position
+
+        coconutObj.CFrame = CFrame.new(playerPos + teleportOffset)
+        coconutObj.AssemblyLinearVelocity = Vector3.zero
+        coconutObj.AssemblyAngularVelocity = Vector3.zero
+
+        task.wait(0.05)
+        collectCoconut(coconutObj)
+    end
+
+    local function scanAllCoconuts()
+        if scanningCoconuts then return end
+        scanningCoconuts = true
+
+        task.spawn(function()
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj.Name == "Coconut" and obj:IsA("BasePart") then
+                    if not obj:GetAttribute("Collected") then
+                        if not activeCoconuts[obj] then
+                            activeCoconuts[obj] = true
+                        end
+                    end
+                end
+            end
+            scanningCoconuts = false
+        end)
+    end
+
+    local function startCoconutCollect()
+        if isCollectingCoconuts then return end
+        isCollectingCoconuts = true
+
+        scanAllCoconuts()
+
+        task.spawn(function()
+            while isCollectingCoconuts and coconutActive do
+                local rootPart = getPlayerRoot()
+                if rootPart then
+                    for _, obj in ipairs(workspace:GetDescendants()) do
+                        if obj.Name == "Coconut" and obj:IsA("BasePart") then
+                            if not obj:GetAttribute("Collected") then
+                                if not activeCoconuts[obj] then
+                                    activeCoconuts[obj] = true
+                                end
+                            end
+                        end
+                    end
+
+                    for coconutObj, _ in pairs(activeCoconuts) do
+                        if coconutObj and coconutObj.Parent then
+                            if not coconutObj:GetAttribute("Collected") then
+                                teleportCoconutToPlayer(coconutObj)
+                            else
+                                activeCoconuts[coconutObj] = nil
+                            end
+                        else
+                            activeCoconuts[coconutObj] = nil
+                        end
+                    end
+                end
+                task.wait(0.1)
+            end
+        end)
+    end
+
+    local function stopCoconutCollect()
+        isCollectingCoconuts = false
+        coconutActive = false
+    end
+
+    local function collectAllNearby()
+        local rootPart = getPlayerRoot()
+        if not rootPart then return 0 end
+
+        local playerPos = rootPart.Position
+        local collected = 0
+
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj.Name == "Coconut" and obj:IsA("BasePart") then
+                if not obj:GetAttribute("Collected") then
+                    if not activeCoconuts[obj] then
+                        activeCoconuts[obj] = true
+                    end
+                end
+            end
+        end
+
+        for coconutObj, _ in pairs(activeCoconuts) do
+            if coconutObj and coconutObj.Parent then
+                if not coconutObj:GetAttribute("Collected") then
+                    coconutObj.CFrame = CFrame.new(playerPos + teleportOffset)
+                    coconutObj.AssemblyLinearVelocity = Vector3.zero
+                    coconutObj.AssemblyAngularVelocity = Vector3.zero
+                    task.wait(0.02)
+                    collectCoconut(coconutObj)
+                    collected = collected + 1
+                    task.wait(0.05)
+                end
+            end
+        end
+
+        return collected
+    end
+
+    local function getCoconutCount()
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj.Name == "Coconut" and obj:IsA("BasePart") then
+                if not obj:GetAttribute("Collected") then
+                    if not activeCoconuts[obj] then
+                        activeCoconuts[obj] = true
+                    end
+                end
+            end
+        end
+
+        local count = 0
+        for coconutObj, _ in pairs(activeCoconuts) do
+            if coconutObj and coconutObj.Parent then
+                if not coconutObj:GetAttribute("Collected") then
+                    count = count + 1
+                else
+                    activeCoconuts[coconutObj] = nil
+                end
+            else
+                activeCoconuts[coconutObj] = nil
+            end
+        end
+        return count
+    end
+
+    -- ============================================
+    -- Create Tabs
+    -- ============================================
+
     local economyTab = hub:Tab("Economy", "💰")
     local eggsTab = hub:Tab("Eggs", "🥚")
     local crabsTab = hub:Tab("Crabs", "🦀")
@@ -122,131 +314,142 @@ return function(hub)
     local sandTab = hub:Tab("Sand", "🏖️")
     local coconutTab = hub:Tab("Coconut", "🥥")
     local miscTab = hub:Tab("Misc", "🔗")
-    
+
+    -- ============================================
+    -- Economy Tab
+    -- ============================================
+
     economyTab:Section("Economy Controls")
-    
+
     economyTab:Toggle(
         "Auto-Collect Cash [ON]",
         "Auto-Collect Cash [OFF]",
         function()
-            state.autoCollectCash = true
             task.spawn(function()
-                while state.autoCollectCash do
+                while true do
                     remotes.CollectCash:FireServer()
                     task.wait(5)
                 end
             end)
-            notify("Auto-collect cash started.")
+            hub:Notify("Crab Tycoon", "Auto-collect cash started.")
             return true
         end,
         function()
-            state.autoCollectCash = false
-            notify("Auto-collect cash stopped.")
+            hub:Notify("Crab Tycoon", "Auto-collect cash stopped.")
         end
     )
-    
+
     economyTab:Button("Merge Crabs", function()
         remotes.MergeCrab:FireServer()
-        notify("Merged!")
+        hub:Notify("Crab Tycoon", "Merged!")
     end)
-    
+
+    -- ============================================
+    -- Eggs Tab
+    -- ============================================
+
     eggsTab:Section("Egg Controls")
-    
+
     local eggTier = eggsTab:Dropdown("Select Egg Tier", {1, 2, 3, 4, 5, 6, 7, 8})
-    
+
     eggsTab:Button("Spawn Egg", function()
         local tier = eggTier()
         if not tier then
-            notify("Select an egg tier first!")
+            hub:Notify("Crab Tycoon", "Select an egg tier first!")
             return
         end
         remotes.CollectEgg:FireServer(tier)
-        notify("Spawned egg tier " .. tostring(tier))
+        hub:Notify("Crab Tycoon", "Spawned egg tier " .. tostring(tier))
     end)
-    
+
     eggsTab:Toggle(
         "Auto Buy Hero Egg [ON]",
         "Auto Buy Hero Egg [OFF]",
         function()
-            state.autoHeroEgg = true
-            notify("Auto Hero Egg enabled.")
+            autoHeroEgg = true
+            hub:Notify("Crab Tycoon", "Auto Hero Egg enabled.")
             return true
         end,
         function()
-            state.autoHeroEgg = false
-            notify("Auto Hero Egg disabled.")
+            autoHeroEgg = false
+            hub:Notify("Crab Tycoon", "Auto Hero Egg disabled.")
         end
     )
-    
+
+    -- ============================================
+    -- Crabs Tab
+    -- ============================================
+
     crabsTab:Section("Crab Controls")
-    
+
     local crabAmount = crabsTab:Dropdown("Select Crab Amount", {1, 5, 25, 100})
-    
+
     crabsTab:Button("Buy Crab", function()
         local amt = crabAmount()
         if not amt then
-            notify("Select a crab amount first!")
+            hub:Notify("Crab Tycoon", "Select a crab amount first!")
             return
         end
         remotes.BuyCrab:FireServer(amt)
     end)
-    
+
     crabsTab:Toggle(
         "Auto-Buy Crab [ON]",
         "Auto-Buy Crab [OFF]",
         function()
             local amt = crabAmount()
             if not amt then
-                notify("Select a crab amount first!")
+                hub:Notify("Crab Tycoon", "Select a crab amount first!")
                 return false
             end
-            state.autoBuyCrab = true
             task.spawn(function()
-                while state.autoBuyCrab do
+                while true do
                     remotes.BuyCrab:FireServer(amt)
                     task.wait(0.1)
                 end
             end)
-            notify("Auto-buy started")
+            hub:Notify("Crab Tycoon", "Auto-buy started")
             return true
         end,
         function()
-            state.autoBuyCrab = false
-            notify("Auto-buy stopped.")
+            hub:Notify("Crab Tycoon", "Auto-buy stopped.")
         end
     )
-    
+
+    -- ============================================
+    -- Shells Tab
+    -- ============================================
+
     shellsTab:Section("Shell Controls")
-    
+
     shellsTab:Toggle(
         "Auto-Collect Shells [ON]",
         "Auto-Collect Shells [OFF]",
         function()
             startShellScan()
-            notify("Shell auto-collect started.")
+            hub:Notify("Crab Tycoon", "Shell auto-collect started.")
             return true
         end,
         function()
             stopShellScan()
-            notify("Shell auto-collect stopped.")
+            hub:Notify("Crab Tycoon", "Shell auto-collect stopped.")
         end
     )
-    
+
     shellsTab:Divider()
-    
+
     local minimumShimmer = shellsTab:Slider("Minimum Shimmer", {
         0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5
     }, 6)
-    
+
     shellsTab:Toggle(
         "Auto-Deposit Shells [ON]",
         "Auto-Deposit Shells [OFF]",
         function()
-            state.autoDepositShells = true
             task.spawn(function()
-                while state.autoDepositShells do
+                while true do
                     local min = minimumShimmer()
-                    local shimmer = require(ReplicatedStorage.Common.Formulas).GetShimmerBoost(workspace:GetServerTimeNow())
+                    local shimmer = Formulas.GetShimmerBoost(workspace:GetServerTimeNow())
                     if shimmer >= min then
                         remotes.DepositShells:FireServer()
                         task.wait(1)
@@ -255,105 +458,105 @@ return function(hub)
                     end
                 end
             end)
-            notify("Auto-deposit started.")
+            hub:Notify("Crab Tycoon", "Auto-deposit started.")
             return true
         end,
         function()
-            state.autoDepositShells = false
-            notify("Auto-deposit stopped.")
+            hub:Notify("Crab Tycoon", "Auto-deposit stopped.")
         end
     )
-    
+
+    -- ============================================
+    -- Appraiser Tab
+    -- ============================================
+
     appraiserTab:Section("Appraiser Controls")
-    
+
     local appraiseAmount = appraiserTab:Dropdown("Select Amount", {1, 100, 10000})
-    
+
     appraiserTab:Button("Buy Upgrade", function()
         local amt = appraiseAmount()
         if not amt then
-            notify("Select an amount first!")
+            hub:Notify("Crab Tycoon", "Select an amount first!")
             return
         end
         remotes.UpgradeProcessing:FireServer(amt)
     end)
-    
+
     appraiserTab:Divider()
-    
+
     appraiserTab:Toggle(
         "Auto-Upgrade [ON]",
         "Auto-Upgrade [OFF]",
         function()
             local amt = appraiseAmount()
             if not amt then
-                notify("Select an amount first!")
+                hub:Notify("Crab Tycoon", "Select an amount first!")
                 return false
             end
-            state.autoAppraise = true
             task.spawn(function()
-                while state.autoAppraise do
+                while true do
                     remotes.UpgradeProcessing:FireServer(amt)
                     task.wait(0.1)
                 end
             end)
-            notify("Auto-Upgrade started")
+            hub:Notify("Crab Tycoon", "Auto-Upgrade started")
             return true
         end,
         function()
-            state.autoAppraise = false
-            notify("Auto-Upgrade stopped.")
+            hub:Notify("Crab Tycoon", "Auto-Upgrade stopped.")
         end
     )
-    
+
+    -- ============================================
+    -- Sand Tab
+    -- ============================================
+
     sandTab:Section("Sand Controls")
-    
+
     sandTab:Toggle(
         "Auto-Collect Sand [ON]",
         "Auto-Collect Sand [OFF]",
         function()
-            state.autoSand = true
-            notify("Auto Sand started.")
-            
             task.spawn(function()
-                while state.autoSand do
-                    local root = getRoot()
-                    for _, obj in ipairs(workspace:GetDescendants()) do
-                        if not state.autoSand then break end
-                        if obj.Name == "sandMound" then
-                            if obj:IsA("BasePart") then
-                                root.CFrame = obj.CFrame + Vector3.new(0, 3, 0)
-                            elseif obj:IsA("Model") then
-                                local part = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-                                if part then
-                                    root.CFrame = part.CFrame + Vector3.new(0, 3, 0)
+                while true do
+                    local root = getPlayerRoot()
+                    if root then
+                        for _, obj in ipairs(workspace:GetDescendants()) do
+                            if obj.Name == "sandMound" then
+                                if obj:IsA("BasePart") then
+                                    root.CFrame = obj.CFrame + Vector3.new(0, 3, 0)
+                                elseif obj:IsA("Model") then
+                                    local part = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                                    if part then
+                                        root.CFrame = part.CFrame + Vector3.new(0, 3, 0)
+                                    end
                                 end
+                                task.wait(0.25)
                             end
-                            task.wait(0.25)
                         end
                     end
                     task.wait(0.2)
                 end
             end)
+            hub:Notify("Crab Tycoon", "Auto Sand started.")
             return true
         end,
         function()
-            state.autoSand = false
-            notify("Auto Sand stopped.")
+            hub:Notify("Crab Tycoon", "Auto Sand stopped.")
         end
     )
-    
+
     sandTab:Divider()
-    
+
     sandTab:Toggle(
         "Auto Sift [ON]",
         "Auto Sift [OFF]",
         function()
-            state.autoSift = true
-            notify("Auto Sift started.")
-            
-            local requestSift = remotes:FindFirstChild("RequestSift")
-            
+            local RequestSift = remotes:FindFirstChild("RequestSift")
+
             task.spawn(function()
-                while state.autoSift do
+                while true do
                     local sifterPart = nil
                     for _, obj in ipairs(workspace:GetDescendants()) do
                         if obj.Name == "sifter_base" and obj:IsA("BasePart") then
@@ -361,143 +564,102 @@ return function(hub)
                             break
                         end
                     end
-                    
+
                     if sifterPart then
-                        local root = getRoot()
-                        root.CFrame = sifterPart.CFrame + Vector3.new(0, 3, 0)
-                        task.wait(0.3)
-                        if requestSift then
-                            requestSift:FireServer()
-                            task.wait(2)
+                        local root = getPlayerRoot()
+                        if root then
+                            root.CFrame = sifterPart.CFrame + Vector3.new(0, 3, 0)
+                            task.wait(0.3)
+                            if RequestSift then
+                                RequestSift:FireServer()
+                                hub:Notify("Crab Tycoon", "Sifting started!")
+                                task.wait(2)
+                            end
                         end
                     else
                         task.wait(1)
                     end
                 end
             end)
+            hub:Notify("Crab Tycoon", "Auto Sift started.")
             return true
         end,
         function()
-            state.autoSift = false
-            notify("Auto Sift stopped.")
+            hub:Notify("Crab Tycoon", "Auto Sift stopped.")
         end
     )
-    
+
+    -- ============================================
+    -- Coconut Tab
+    -- ============================================
+
     coconutTab:Section("Coconut Controls")
-    
-    local coconutActive = false
-    
-    local function teleportCoconut(coconutObj)
-        if not coconutObj or not coconutObj.Parent then return end
-        if coconutObj:GetAttribute("Collected") then return end
-        
-        local root = getRoot()
-        if not root then return end
-        
-        coconutObj.CFrame = CFrame.new(root.Position + Vector3.new(0, 2, 0))
-        coconutObj.AssemblyLinearVelocity = Vector3.zero
-        coconutObj.AssemblyAngularVelocity = Vector3.zero
-        
-        task.wait(0.05)
-        
-        coconutObj:SetAttribute("Collected", true)
-        local collectRemote = remotes:FindFirstChild("CollectCoconut")
-        if collectRemote then
-            collectRemote:FireServer()
-        end
-        
-        TweenService:Create(coconutObj, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-            Transparency = 1,
-            Size = coconutObj.Size * 0.05
-        }):Play()
-        
-        task.delay(0.2, function()
-            if coconutObj and coconutObj.Parent then
-                coconutObj:Destroy()
-            end
-        end)
-    end
-    
+
     coconutTab:Toggle(
         "Auto-Collect Coconuts [ON]",
         "Auto-Collect Coconuts [OFF]",
         function()
             coconutActive = true
-            notify("Auto-Collect started!")
-            
-            task.spawn(function()
-                while coconutActive do
-                    for _, obj in ipairs(workspace:GetDescendants()) do
-                        if obj.Name == "Coconut" and obj:IsA("BasePart") then
-                            if not obj:GetAttribute("Collected") then
-                                teleportCoconut(obj)
-                            end
-                        end
-                    end
-                    task.wait(0.1)
-                end
-            end)
+            scanAllCoconuts()
+            startCoconutCollect()
+            hub:Notify("Crab Tycoon", "Auto-Collect started. Coconuts will teleport to you!")
             return true
         end,
         function()
             coconutActive = false
-            notify("Auto-Collect stopped.")
+            stopCoconutCollect()
+            hub:Notify("Crab Tycoon", "Auto-Collect stopped.")
         end
     )
-    
+
     coconutTab:Button("Collect All Nearby Coconuts", function()
-        local count = 0
-        local root = getRoot()
-        if not root then
-            notify("No character found!")
-            return
-        end
-        
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj.Name == "Coconut" and obj:IsA("BasePart") then
-                if not obj:GetAttribute("Collected") then
-                    teleportCoconut(obj)
-                    count = count + 1
-                    task.wait(0.05)
-                end
-            end
-        end
-        
+        local count = collectAllNearby()
         if count > 0 then
-            notify("Collected " .. tostring(count) .. " coconuts!")
+            hub:Notify("Crab Tycoon", "Collected " .. tostring(count) .. " coconuts!")
         else
-            notify("No coconuts found.")
+            hub:Notify("Crab Tycoon", "No coconuts nearby.")
         end
     end)
-    
-    miscTab:Section("Links")
-    miscTab:Button("Copy Discord Invite", function()
-        hub:Copy("https://discord.gg/nQr2ZFE6Ae")
-        notify("Discord link copied!")
-    end)
-    
-    miscTab:Section("Info")
-    miscTab:Label("Crab Tycoon v1.0", Color3.fromRGB(150, 150, 150))
-    miscTab:Label("AquaScripts Hub", Color3.fromRGB(100, 180, 255))
-    
-    local syncShopStock = remotes:FindFirstChild("SyncShopStock")
-    local buyShopEgg = remotes:FindFirstChild("BuyShopEgg")
-    
-    if syncShopStock then
-        syncShopStock.OnClientEvent:Connect(function(stock)
-            state.currentShopStock = stock
-        end)
-    end
-    
+
+    coconutTab:Label("Active Coconuts: 0", Color3.fromRGB(180, 180, 180))
+
+    -- Update coconut count
     task.spawn(function()
         while true do
-            if state.autoHeroEgg and state.currentShopStock and state.currentShopStock.slots then
+            local count = getCoconutCount()
+            -- Find the label and update it
+            for _, child in ipairs(coconutTab.Frame:GetChildren()) do
+                if child:IsA("TextLabel") and child.Text:match("Active Coconuts:") then
+                    child.Text = "Active Coconuts: " .. tostring(count)
+                    break
+                end
+            end
+            task.wait(1)
+        end
+    end)
+
+    -- ============================================
+    -- Hero Egg Auto-Buy
+    -- ============================================
+
+    local BuyShopEgg = ReplicatedStorage.Remotes:FindFirstChild("BuyShopEgg")
+    local SyncShopStock = ReplicatedStorage.Remotes:FindFirstChild("SyncShopStock")
+
+    if SyncShopStock then
+        SyncShopStock.OnClientEvent:Connect(function(stock)
+            currentShopStock = stock
+        end)
+    end
+
+    task.spawn(function()
+        while true do
+            if autoHeroEgg and currentShopStock and currentShopStock.slots then
                 local cash = MirrorClient.get("cash") or 0
-                for slot, egg in ipairs(state.currentShopStock.slots) do
+                for slot, egg in ipairs(currentShopStock.slots) do
                     if egg.eggType == "hero" and egg.available and cash >= egg.price then
-                        if buyShopEgg then
-                            buyShopEgg:FireServer(slot)
-                            notify("Bought Hero Egg!")
+                        if BuyShopEgg then
+                            BuyShopEgg:FireServer(slot)
+                            hub:Notify("Crab Tycoon", "Bought Hero Egg!")
                             task.wait(2)
                             break
                         end
@@ -507,8 +669,25 @@ return function(hub)
             task.wait(0.5)
         end
     end)
-    
+
+    -- ============================================
+    -- Misc Tab
+    -- ============================================
+
+    miscTab:Section("Links")
+    miscTab:Button("Copy Discord Invite", function()
+        hub:Copy("https://discord.gg/CPtGMADTSp")
+        hub:Notify("Crab Tycoon", "Discord link copied!")
+    end)
+
+    miscTab:Section("Info")
+    miscTab:Label("Crab Tycoon v1.0", Color3.fromRGB(150, 150, 150))
+    miscTab:Label("AquaScripts Hub", Color3.fromRGB(100, 180, 255))
+
+    -- ============================================
+    -- Startup Notification
+    -- ============================================
+
     task.wait(1)
-    notify("Crab Tycoon loaded successfully!", 3)
-    notify("Anti-AFK is auto-toggled.", 3)
+    hub:Notify("Crab Tycoon", "Loaded successfully!", 3)
 end
