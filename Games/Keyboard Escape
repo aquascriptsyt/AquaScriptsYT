@@ -728,7 +728,7 @@ return function(hub)
 
     task.wait(1)
 
-    hub:Notify("Support Needed!", "Join our Discord for updates and help: discord.gg/nQr2ZFE6Ae", 10)
+    hub:Notify("Support Needed!", "Join our Discord for updates and help: https://discord.gg/2WesZEXwrH", 10)
     hub:Notify("System Note", "Anti-AFK is auto-toggled. Enjoy 24/7 farming!", 5)
     hub:Notify("Keyboard Escape", "Hub loaded successfully!", 3)
 end
