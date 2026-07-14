@@ -9,6 +9,7 @@ return function(hub)
     local RunService = game:GetService("RunService")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local VirtualUser = game:GetService("VirtualUser")
+    local TweenService = game:GetService("TweenService")
     local LocalPlayer = Players.LocalPlayer
 
     local playerState = {
@@ -33,6 +34,185 @@ return function(hub)
         Speed2x = Enum.KeyCode.LeftControl,
         Speed4x = Enum.KeyCode.LeftAlt
     }
+
+    -- ============================================
+    -- Popup System
+    -- ============================================
+
+    local function createPopup(title, message, acceptText, declineText, onAccept, onDecline)
+        local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+        
+        -- Blur background
+        local blur = Instance.new("BlurEffect")
+        blur.Name = "PopupBlur"
+        blur.Size = 0
+        blur.Parent = game:GetService("Lighting")
+        
+        -- Tween blur in
+        TweenService:Create(blur, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = 20
+        }):Play()
+        
+        -- Background overlay
+        local overlay = Instance.new("Frame")
+        overlay.Name = "PopupOverlay"
+        overlay.Size = UDim2.new(1, 0, 1, 0)
+        overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        overlay.BackgroundTransparency = 0.6
+        overlay.BorderSizePixel = 0
+        overlay.ZIndex = 999
+        overlay.Parent = playerGui
+        
+        -- Main popup frame
+        local popup = Instance.new("Frame")
+        popup.Name = "PopupFrame"
+        popup.Size = UDim2.fromOffset(400, 220)
+        popup.Position = UDim2.new(0.5, -200, 0.5, -110)
+        popup.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+        popup.BorderSizePixel = 0
+        popup.ZIndex = 1000
+        popup.Parent = overlay
+        Instance.new("UICorner", popup).CornerRadius = UDim.new(0, 12)
+        
+        -- Stroke
+        local stroke = Instance.new("UIStroke", popup)
+        stroke.Color = Color3.fromRGB(255, 200, 50)
+        stroke.Thickness = 2
+        
+        -- Title
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Size = UDim2.new(1, -30, 0, 40)
+        titleLabel.Position = UDim2.new(0, 15, 0, 15)
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Text = title or "⚠️ Warning"
+        titleLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
+        titleLabel.Font = Enum.Font.GothamBold
+        titleLabel.TextSize = 22
+        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        titleLabel.ZIndex = 1001
+        titleLabel.Parent = popup
+        
+        -- Message
+        local messageLabel = Instance.new("TextLabel")
+        messageLabel.Size = UDim2.new(1, -30, 0, 50)
+        messageLabel.Position = UDim2.new(0, 15, 0, 60)
+        messageLabel.BackgroundTransparency = 1
+        messageLabel.Text = message or "This action may cause you to get kicked from the game. Proceed with caution."
+        messageLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
+        messageLabel.Font = Enum.Font.Gotham
+        messageLabel.TextSize = 14
+        messageLabel.TextWrapped = true
+        messageLabel.TextXAlignment = Enum.TextXAlignment.Left
+        messageLabel.ZIndex = 1001
+        messageLabel.Parent = popup
+        
+        -- Warning icon
+        local icon = Instance.new("TextLabel")
+        icon.Size = UDim2.fromOffset(40, 40)
+        icon.Position = UDim2.new(1, -55, 0, 15)
+        icon.BackgroundTransparency = 1
+        icon.Text = "⚠️"
+        icon.TextSize = 30
+        icon.ZIndex = 1001
+        icon.Parent = popup
+        
+        -- Button container
+        local btnContainer = Instance.new("Frame")
+        btnContainer.Size = UDim2.new(1, -30, 0, 44)
+        btnContainer.Position = UDim2.new(0, 15, 1, -54)
+        btnContainer.BackgroundTransparency = 1
+        btnContainer.ZIndex = 1001
+        btnContainer.Parent = popup
+        
+        -- Decline button (left)
+        local declineBtn = Instance.new("TextButton")
+        declineBtn.Size = UDim2.new(0.45, -5, 1, 0)
+        declineBtn.Position = UDim2.new(0, 0, 0, 0)
+        declineBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        declineBtn.Text = declineText or "❌ Decline"
+        declineBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        declineBtn.Font = Enum.Font.GothamBold
+        declineBtn.TextSize = 15
+        declineBtn.ZIndex = 1002
+        declineBtn.Parent = btnContainer
+        Instance.new("UICorner", declineBtn).CornerRadius = UDim.new(0, 8)
+        
+        declineBtn.MouseEnter:Connect(function()
+            declineBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        end)
+        declineBtn.MouseLeave:Connect(function()
+            declineBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        end)
+        
+        -- Accept button (right)
+        local acceptBtn = Instance.new("TextButton")
+        acceptBtn.Size = UDim2.new(0.45, -5, 1, 0)
+        acceptBtn.Position = UDim2.new(0.55, 5, 0, 0)
+        acceptBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+        acceptBtn.Text = acceptText or "✅ Accept"
+        acceptBtn.TextColor3 = Color3.fromRGB(20, 20, 25)
+        acceptBtn.Font = Enum.Font.GothamBold
+        acceptBtn.TextSize = 15
+        acceptBtn.ZIndex = 1002
+        acceptBtn.Parent = btnContainer
+        Instance.new("UICorner", acceptBtn).CornerRadius = UDim.new(0, 8)
+        
+        acceptBtn.MouseEnter:Connect(function()
+            acceptBtn.BackgroundColor3 = Color3.fromRGB(255, 215, 80)
+        end)
+        acceptBtn.MouseLeave:Connect(function()
+            acceptBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+        end)
+        
+        -- Popup animation (scale in)
+        popup.Scale = 0.8
+        popup.BackgroundTransparency = 0.3
+        TweenService:Create(popup, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Scale = 1,
+            BackgroundTransparency = 0
+        }):Play()
+        
+        -- Return functions to control the popup
+        local function destroyPopup()
+            -- Tween blur out
+            TweenService:Create(blur, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Size = 0
+            }):Play()
+            
+            -- Fade out popup
+            TweenService:Create(overlay, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundTransparency = 1
+            }):Play()
+            
+            TweenService:Create(popup, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Scale = 0.8,
+                BackgroundTransparency = 1
+            }):Play()
+            
+            task.wait(0.3)
+            overlay:Destroy()
+            blur:Destroy()
+        end
+        
+        -- Button connections
+        acceptBtn.MouseButton1Click:Connect(function()
+            if onAccept then onAccept() end
+            destroyPopup()
+        end)
+        
+        declineBtn.MouseButton1Click:Connect(function()
+            if onDecline then onDecline() end
+            destroyPopup()
+        end)
+        
+        return {
+            Accept = acceptBtn,
+            Decline = declineBtn,
+            Destroy = destroyPopup,
+            Popup = popup,
+            Overlay = overlay
+        }
+    end
 
     -- ============================================
     -- Anti-AFK
@@ -195,14 +375,12 @@ return function(hub)
                     local root = char:FindFirstChild("HumanoidRootPart")
                     if not root then return end
 
-                    -- Enable noclip on all parts
                     for _, part in ipairs(char:GetDescendants()) do
                         if part:IsA("BasePart") and part.CanCollide then
                             part.CanCollide = false
                         end
                     end
 
-                    -- Teleport to last zone
                     local distance = (lastZonePosition.Position - root.Position).Magnitude
 
                     if distance < 0.5 then
@@ -213,27 +391,32 @@ return function(hub)
 
                     root.AssemblyLinearVelocity = Vector3.zero
 
-                    -- Smooth teleport
                     local function teleportLoop(deltaTime)
                         if not playerState.FarmLastZone then
-                            heartbeatConnection:Disconnect()
-                            heartbeatConnection = nil
+                            if heartbeatConnection then
+                                heartbeatConnection:Disconnect()
+                                heartbeatConnection = nil
+                            end
                             farmLastZoneRunning = false
                             return
                         end
 
                         local char = LocalPlayer.Character
                         if not char then
-                            heartbeatConnection:Disconnect()
-                            heartbeatConnection = nil
+                            if heartbeatConnection then
+                                heartbeatConnection:Disconnect()
+                                heartbeatConnection = nil
+                            end
                             farmLastZoneRunning = false
                             return
                         end
 
                         local root = char:FindFirstChild("HumanoidRootPart")
                         if not root then
-                            heartbeatConnection:Disconnect()
-                            heartbeatConnection = nil
+                            if heartbeatConnection then
+                                heartbeatConnection:Disconnect()
+                                heartbeatConnection = nil
+                            end
                             farmLastZoneRunning = false
                             return
                         end
@@ -242,8 +425,10 @@ return function(hub)
 
                         if currentDist < 0.5 then
                             root.CFrame = lastZonePosition
-                            heartbeatConnection:Disconnect()
-                            heartbeatConnection = nil
+                            if heartbeatConnection then
+                                heartbeatConnection:Disconnect()
+                                heartbeatConnection = nil
+                            end
                             farmLastZoneRunning = false
                             return
                         end
@@ -368,41 +553,38 @@ return function(hub)
             "Farm Last Zone [ON]",
             "Farm Last Zone [OFF]",
             function()
-                -- Show warning popup
-                local warningTab = hub:Tab("⚠️ Warning", "⚠️")
-                warningTab:Section("Warning")
-                warningTab:Label("Farm Last Zone may cause you to get kicked!", Color3.fromRGB(255, 200, 100))
-                warningTab:Label("Proceed at your own risk.", Color3.fromRGB(255, 200, 100))
-                warningTab:Label("", Color3.fromRGB(255, 255, 255))
-
-                local accepted = false
-
-                warningTab:Button("✅ Accept (Enable)", function()
-                    accepted = true
-                    playerState.FarmLastZone = true
-                    farmLastZoneEnabled = true
-                    startFarmLastZone()
-                    hub:Notify("Farm Last Zone", "Enabled! (Use at your own risk)")
-                    -- Remove warning tab
-                    warningTab.Frame.Visible = false
-                end)
-
-                warningTab:Button("❌ Decline (Disable)", function()
-                    accepted = false
-                    playerState.FarmLastZone = false
-                    farmLastZoneEnabled = false
-                    hub:Notify("Farm Last Zone", "Disabled!")
-                    -- Remove warning tab
-                    warningTab.Frame.Visible = false
-                    -- Disable the toggle button by setting it back to OFF state
-                    if farmLastZoneBtn and farmLastZoneBtn.SetState then
-                        farmLastZoneBtn:SetState(false)
+                -- Show popup in middle of screen with blur
+                createPopup(
+                    "⚠️ Warning",
+                    "Farm Last Zone may cause you to get kicked from the game.\nProceed with caution.",
+                    "✅ Accept (Enable)",
+                    "❌ Decline (Disable)",
+                    function()
+                        -- ACCEPT - Enable the feature
+                        playerState.FarmLastZone = true
+                        farmLastZoneEnabled = true
+                        startFarmLastZone()
+                        hub:Notify("Farm Last Zone", "Enabled! (Use at your own risk)")
+                        -- Update toggle state to ON
+                        if farmLastZoneBtn and farmLastZoneBtn.SetState then
+                            farmLastZoneBtn:SetState(true)
+                        end
+                    end,
+                    function()
+                        -- DECLINE - Disable the feature
+                        playerState.FarmLastZone = false
+                        farmLastZoneEnabled = false
+                        hub:Notify("Farm Last Zone", "Disabled!")
+                        -- Ensure toggle is OFF
+                        if farmLastZoneBtn and farmLastZoneBtn.SetState then
+                            farmLastZoneBtn:SetState(false)
+                        end
                     end
-                end)
-
+                )
                 return false -- Don't enable immediately, wait for user choice
             end,
             function()
+                -- Toggle turned OFF manually
                 playerState.FarmLastZone = false
                 farmLastZoneEnabled = false
                 if heartbeatConnection then
@@ -534,7 +716,7 @@ return function(hub)
     supportTab:Section("Community & Support")
 
     supportTab:Button("Copy Discord Invite", function()
-        hub:Copy("https://discord.gg/nQr2ZFE6Ae")
+        hub:Copy("https://discord.gg/2WesZEXwrH")
         hub:Notify("Copied!", "Discord link copied to clipboard!")
     end)
 
