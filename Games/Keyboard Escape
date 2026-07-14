@@ -1,156 +1,329 @@
 return function(hub)
+    --[[
+        AquaScriptsYT - Universal Script
+        Ported from ARASAKA Inc.
+    ]]
+
     local Players = game:GetService("Players")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local UserInputService = game:GetService("UserInputService")
     local RunService = game:GetService("RunService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local VirtualUser = game:GetService("VirtualUser")
     local LocalPlayer = Players.LocalPlayer
-    
-    local state = {
-        AutoClick = false,
-        AutoCollect = false,
-        AutoUpgrade = false
+
+    local playerState = {
+        Flying = false,
+        FlySpeed = 50,
+        UsePlatformStand = true,
+        Noclip = false,
+        AntiAFK = true,
+        Frozen = false,
+        AutoWalking = false
     }
-    
-    local function notify(text)
-        hub:Notify("Keyboard Tycoon", text, 3)
+
+    local keybinds = {
+        Forward = Enum.KeyCode.W,
+        Backward = Enum.KeyCode.S,
+        Left = Enum.KeyCode.A,
+        Right = Enum.KeyCode.D,
+        Up = Enum.KeyCode.Space,
+        Down = Enum.KeyCode.LeftShift,
+        Speed2x = Enum.KeyCode.LeftControl,
+        Speed4x = Enum.KeyCode.LeftAlt
+    }
+
+    -- Anti-AFK
+    LocalPlayer.Idled:Connect(function()
+        if playerState.AntiAFK then
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end
+    end)
+
+    -- Freeze / Unfreeze
+    local function toggleFreeze(state)
+        local char = LocalPlayer.Character
+        if not char then return end
+        local root = char:WaitForChild("HumanoidRootPart")
+        playerState.Frozen = state
+
+        if state then
+            local bg = Instance.new("BodyGyro", root)
+            bg.Name = "AquaFreezeBG"
+            bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+            bg.CFrame = root.CFrame
+
+            local bv = Instance.new("BodyVelocity", root)
+            bv.Name = "AquaFreezeBV"
+            bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+            bv.Velocity = Vector3.zero
+        else
+            local bg = root:FindFirstChild("AquaFreezeBG")
+            if bg then bg:Destroy() end
+            local bv = root:FindFirstChild("AquaFreezeBV")
+            if bv then bv:Destroy() end
+        end
     end
-    
-    local function getRoot()
-        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-        return char:WaitForChild("HumanoidRootPart")
+
+    -- Noclip loop
+    RunService.Stepped:Connect(function()
+        if playerState.Noclip and LocalPlayer.Character then
+            for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end)
+
+    -- Fly logic
+    local function startFly()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local root = char:WaitForChild("HumanoidRootPart")
+        local humanoid = char:WaitForChild("Humanoid")
+
+        local gyro = Instance.new("BodyGyro", root)
+        gyro.P = 90000
+        gyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+
+        local velocity = Instance.new("BodyVelocity", root)
+        velocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+
+        if playerState.UsePlatformStand then
+            humanoid.PlatformStand = true
+        end
+
+        task.spawn(function()
+            while playerState.Flying do
+                local cam = workspace.CurrentCamera
+                local cf = cam.CFrame
+                gyro.CFrame = cf
+                velocity.Velocity = Vector3.zero
+
+                local speedMulti = UserInputService:IsKeyDown(keybinds.Speed4x) and 4
+                                   or UserInputService:IsKeyDown(keybinds.Speed2x) and 2
+                                   or 1
+
+                local speed = playerState.FlySpeed * speedMulti
+
+                if UserInputService:IsKeyDown(keybinds.Forward) then
+                    velocity.Velocity += speed * cf.LookVector
+                end
+                if UserInputService:IsKeyDown(keybinds.Backward) then
+                    velocity.Velocity -= speed * cf.LookVector
+                end
+                if UserInputService:IsKeyDown(keybinds.Left) then
+                    velocity.Velocity -= speed * cf.RightVector
+                end
+                if UserInputService:IsKeyDown(keybinds.Right) then
+                    velocity.Velocity += speed * cf.RightVector
+                end
+                if UserInputService:IsKeyDown(keybinds.Up) then
+                    velocity.Velocity += speed * Vector3.new(0, 1, 0)
+                end
+                if UserInputService:IsKeyDown(keybinds.Down) then
+                    velocity.Velocity -= speed * Vector3.new(0, 1, 0)
+                end
+
+                task.wait()
+            end
+
+            gyro:Destroy()
+            velocity:Destroy()
+            if playerState.UsePlatformStand then
+                humanoid.PlatformStand = false
+            end
+        end)
     end
-    
-    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-    if not remotes then
-        remotes = ReplicatedStorage:WaitForChild("RemoteEvents")
-    end
-    
-    local clickRemote = remotes:FindFirstChild("Click") or remotes:FindFirstChild("Collect")
-    local collectRemote = remotes:FindFirstChild("CollectCash") or remotes:FindFirstChild("Collect")
-    local upgradeRemote = remotes:FindFirstChild("Upgrade") or remotes:FindFirstChild("BuyUpgrade")
-    
-    local mainTab = hub:Tab("Main", "⌨️")
+
+    -- Create Tabs
+    local mainTab = hub:Tab("Main", "🏠")
     local farmTab = hub:Tab("Auto Farm", "⚡")
-    local miscTab = hub:Tab("Misc", "🔗")
-    
-    mainTab:Section("Keyboard Controls")
-    
-    mainTab:Button("Click", function()
-        if clickRemote then
-            clickRemote:FireServer()
-            notify("Clicked!")
-        else
-            notify("Click remote not found!")
-        end
-    end)
-    
+    local passTab = hub:Tab("Gamepasses", "⭐")
+    local supportTab = hub:Tab("Support", "❤️")
+
+    -- ============================================
+    -- Main Tab
+    -- ============================================
+
+    mainTab:Section("Movement Controls")
+
+    -- Jump Power Slider
+    mainTab:Slider("Jump Power", {50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500}, 1)
+
+    -- Freeze Toggle
     mainTab:Toggle(
-        "Auto Click [ON]",
-        "Auto Click [OFF]",
+        "Freeze Position [ON]",
+        "Freeze Position [OFF]",
         function()
-            state.AutoClick = true
-            task.spawn(function()
-                while state.AutoClick do
-                    if clickRemote then
-                        clickRemote:FireServer()
-                    end
-                    task.wait(0.05)
-                end
-            end)
-            notify("Auto click started!")
+            toggleFreeze(true)
             return true
         end,
         function()
-            state.AutoClick = false
-            notify("Auto click stopped.")
+            toggleFreeze(false)
         end
     )
-    
+
+    -- Freeze Keybind (using button since library doesn't have keybind yet)
+    mainTab:Button("Toggle Freeze (Keybind: L)", function()
+        playerState.Frozen = not playerState.Frozen
+        toggleFreeze(playerState.Frozen)
+        hub:Notify("Freeze", playerState.Frozen and "Frozen!" or "Unfrozen!")
+    end)
+
+    -- Noclip Toggle
+    mainTab:Toggle(
+        "Noclip [ON]",
+        "Noclip [OFF]",
+        function()
+            playerState.Noclip = true
+            return true
+        end,
+        function()
+            playerState.Noclip = false
+        end
+    )
+
     mainTab:Divider()
-    
-    mainTab:Button("Collect Cash", function()
-        if collectRemote then
-            collectRemote:FireServer()
-            notify("Collected!")
-        else
-            notify("Collect remote not found!")
-        end
-    end)
-    
+    mainTab:Section("Fly Settings")
+
+    -- Fly Toggle
+    local flyToggleState = false
     mainTab:Toggle(
-        "Auto Collect [ON]",
-        "Auto Collect [OFF]",
+        "Fly Enabled [ON]",
+        "Fly Enabled [OFF]",
         function()
-            state.AutoCollect = true
-            task.spawn(function()
-                while state.AutoCollect do
-                    if collectRemote then
-                        collectRemote:FireServer()
-                    end
-                    task.wait(2)
-                end
-            end)
-            notify("Auto collect started!")
+            playerState.Flying = true
+            flyToggleState = true
+            startFly()
             return true
         end,
         function()
-            state.AutoCollect = false
-            notify("Auto collect stopped.")
+            playerState.Flying = false
+            flyToggleState = false
         end
     )
-    
-    farmTab:Section("Upgrade Controls")
-    
-    farmTab:Button("Upgrade", function()
-        if upgradeRemote then
-            upgradeRemote:FireServer()
-            notify("Upgraded!")
+
+    -- Fly Keybind (using button)
+    mainTab:Button("Toggle Fly (Keybind: F)", function()
+        flyToggleState = not flyToggleState
+        playerState.Flying = flyToggleState
+        if flyToggleState then
+            startFly()
+            hub:Notify("Fly", "Fly enabled!")
         else
-            notify("Upgrade remote not found!")
+            hub:Notify("Fly", "Fly disabled!")
         end
     end)
-    
+
+    -- Fly Speed Slider
+    mainTab:Slider("Fly Speed", {10, 25, 50, 75, 100, 150, 200, 300, 400, 500}, 3)
+
+    -- ============================================
+    -- Auto Farm Tab
+    -- ============================================
+
+    farmTab:Section("Automatic Training")
+
     farmTab:Toggle(
-        "Auto Upgrade [ON]",
-        "Auto Upgrade [OFF]",
+        "Auto Run [ON]",
+        "Auto Run [OFF]",
         function()
-            state.AutoUpgrade = true
+            playerState.AutoWalking = true
             task.spawn(function()
-                while state.AutoUpgrade do
-                    if upgradeRemote then
-                        upgradeRemote:FireServer()
-                    end
-                    task.wait(2)
+                while playerState.AutoWalking do
+                    pcall(function()
+                        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+                        if remotes then
+                            local updateSpeed = remotes:FindFirstChild("UpdateSpeed")
+                            if updateSpeed then
+                                updateSpeed:FireServer({ "Walking" })
+                            end
+                        end
+                        local char = LocalPlayer.Character
+                        if char and char:FindFirstChild("Humanoid") then
+                            char.Humanoid:Move(Vector3.new(0, 0, -1), true)
+                        end
+                    end)
+                    task.wait(0.1)
                 end
             end)
-            notify("Auto upgrade started!")
+            hub:Notify("Auto Run", "Started!")
             return true
         end,
         function()
-            state.AutoUpgrade = false
-            notify("Auto upgrade stopped.")
+            playerState.AutoWalking = false
+            hub:Notify("Auto Run", "Stopped!")
         end
     )
-    
-    farmTab:Divider()
-    
-    local clickSpeed = farmTab:Slider("Click Speed (ms)", {50, 100, 150, 200, 250, 300, 400, 500, 750, 1000}, 1)
-    
-    farmTab:Button("Apply Click Speed", function()
-        local speed = clickSpeed()
-        notify("Click speed set to " .. tostring(speed) .. "ms")
+
+    -- ============================================
+    -- Gamepasses Tab
+    -- ============================================
+
+    passTab:Section("Gamepass Bypasses")
+
+    passTab:Button("Unlock Diamond Treadmill", function()
+        local clientState = require(ReplicatedStorage:WaitForChild("ClientState"))
+        local oldGet = clientState.Get
+        clientState.Get = function(...)
+            local state = oldGet(...)
+            state.DiamondTreadmillActive = true
+            return state
+        end
+        hub:Notify("Success", "Diamond Treadmill Activated!")
     end)
-    
-    miscTab:Section("Links")
-    miscTab:Button("Copy Discord Invite", function()
+
+    passTab:Button("Unlock Gold Treadmill", function()
+        local clientState = require(ReplicatedStorage:WaitForChild("ClientState"))
+        local oldGet = clientState.Get
+        clientState.Get = function(...)
+            local state = oldGet(...)
+            state.GoldTreadmillActive = true
+            return state
+        end
+        hub:Notify("Success", "Gold Treadmill Activated!")
+    end)
+
+    passTab:Divider()
+    passTab:Section("Rewards")
+
+    passTab:Button("Claim Group Reward", function()
+        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+        if remotes then
+            local claim = remotes:FindFirstChild("ClaimGift")
+            if claim then
+                claim:FireServer()
+                hub:Notify("Claimed", "Group reward remote fired!")
+            else
+                hub:Notify("Error", "ClaimGift remote not found!")
+            end
+        else
+            hub:Notify("Error", "Remotes not found!")
+        end
+    end)
+
+    -- ============================================
+    -- Support Tab
+    -- ============================================
+
+    supportTab:Section("Community & Support")
+
+    supportTab:Button("Copy Discord Invite", function()
         hub:Copy("https://discord.gg/nQr2ZFE6Ae")
-        notify("Discord link copied!")
+        hub:Notify("Copied!", "Discord link copied to clipboard!")
     end)
-    
-    miscTab:Section("Info")
-    miscTab:Label("Keyboard Tycoon v1.0", Color3.fromRGB(150, 150, 150))
-    miscTab:Label("AquaScripts Hub", Color3.fromRGB(100, 180, 255))
-    
+
+    supportTab:Label("Join to report bugs or request features!")
+
+    -- ============================================
+    -- Startup Notifications
+    -- ============================================
+
     task.wait(1)
-    notify("Keyboard Tycoon loaded successfully!", 3)
+
+    hub:Notify("Support Needed!", "Join our Discord for updates and help: discord.gg/nQr2ZFE6Ae", 10)
+    hub:Notify("System Note", "Anti-AFK is auto-toggled. Enjoy 24/7 farming!", 5)
+    hub:Notify("AquaScriptsYT", "Hub loaded successfully!", 3)
 end
