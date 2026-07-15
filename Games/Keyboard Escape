@@ -1,7 +1,7 @@
 return function(hub)
     --[[
         AquaScriptsYT - Keyboard Escape
-        Universal Script with Auto Rebirth, Farm Last Zone, Fly, Noclip & More
+        Universal Script with Auto Rebirth & Farm Last Zone
     ]]
 
     local Players = game:GetService("Players")
@@ -41,23 +41,27 @@ return function(hub)
 
     local function createPopup(title, message, acceptText, declineText, onAccept, onDecline)
         local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-
+        
+        -- Create a ScreenGui for the popup
         local popupGui = Instance.new("ScreenGui")
         popupGui.Name = "PopupGui"
         popupGui.ResetOnSpawn = false
         popupGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         popupGui.DisplayOrder = 999
         popupGui.Parent = playerGui
-
+        
+        -- Blur background (applies to entire screen)
         local blur = Instance.new("BlurEffect")
         blur.Name = "PopupBlur"
         blur.Size = 0
         blur.Parent = game:GetService("Lighting")
-
+        
+        -- Tween blur in
         TweenService:Create(blur, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             Size = 20
         }):Play()
-
+        
+        -- Full screen overlay
         local overlay = Instance.new("Frame")
         overlay.Name = "PopupOverlay"
         overlay.Size = UDim2.new(1, 0, 1, 0)
@@ -67,7 +71,8 @@ return function(hub)
         overlay.BorderSizePixel = 0
         overlay.ZIndex = 1
         overlay.Parent = popupGui
-
+        
+        -- Main popup frame (centered)
         local popup = Instance.new("Frame")
         popup.Name = "PopupFrame"
         popup.Size = UDim2.fromOffset(400, 220)
@@ -77,16 +82,19 @@ return function(hub)
         popup.ClipsDescendants = false
         popup.ZIndex = 2
         popup.Parent = overlay
-
+        
+        -- Corner
         local corner = Instance.new("UICorner")
         corner.CornerRadius = UDim.new(0, 12)
         corner.Parent = popup
-
+        
+        -- Stroke
         local stroke = Instance.new("UIStroke")
         stroke.Color = Color3.fromRGB(255, 200, 50)
         stroke.Thickness = 2
         stroke.Parent = popup
-
+        
+        -- Title
         local titleLabel = Instance.new("TextLabel")
         titleLabel.Size = UDim2.new(1, -30, 0, 40)
         titleLabel.Position = UDim2.new(0, 15, 0, 15)
@@ -98,7 +106,8 @@ return function(hub)
         titleLabel.TextXAlignment = Enum.TextXAlignment.Left
         titleLabel.ZIndex = 3
         titleLabel.Parent = popup
-
+        
+        -- Message
         local messageLabel = Instance.new("TextLabel")
         messageLabel.Size = UDim2.new(1, -30, 0, 50)
         messageLabel.Position = UDim2.new(0, 15, 0, 60)
@@ -111,7 +120,8 @@ return function(hub)
         messageLabel.TextXAlignment = Enum.TextXAlignment.Left
         messageLabel.ZIndex = 3
         messageLabel.Parent = popup
-
+        
+        -- Warning icon
         local icon = Instance.new("TextLabel")
         icon.Size = UDim2.fromOffset(40, 40)
         icon.Position = UDim2.new(1, -55, 0, 15)
@@ -120,14 +130,16 @@ return function(hub)
         icon.TextSize = 30
         icon.ZIndex = 3
         icon.Parent = popup
-
+        
+        -- Button container
         local btnContainer = Instance.new("Frame")
         btnContainer.Size = UDim2.new(1, -30, 0, 44)
         btnContainer.Position = UDim2.new(0, 15, 1, -54)
         btnContainer.BackgroundTransparency = 1
         btnContainer.ZIndex = 3
         btnContainer.Parent = popup
-
+        
+        -- Decline button (left)
         local declineBtn = Instance.new("TextButton")
         declineBtn.Size = UDim2.new(0.45, -5, 1, 0)
         declineBtn.Position = UDim2.new(0, 0, 0, 0)
@@ -138,18 +150,19 @@ return function(hub)
         declineBtn.TextSize = 15
         declineBtn.ZIndex = 4
         declineBtn.Parent = btnContainer
-
+        
         local declineCorner = Instance.new("UICorner")
         declineCorner.CornerRadius = UDim.new(0, 8)
         declineCorner.Parent = declineBtn
-
+        
         declineBtn.MouseEnter:Connect(function()
             declineBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
         end)
         declineBtn.MouseLeave:Connect(function()
             declineBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
         end)
-
+        
+        -- Accept button (right)
         local acceptBtn = Instance.new("TextButton")
         acceptBtn.Size = UDim2.new(0.45, -5, 1, 0)
         acceptBtn.Position = UDim2.new(0.55, 5, 0, 0)
@@ -160,30 +173,34 @@ return function(hub)
         acceptBtn.TextSize = 15
         acceptBtn.ZIndex = 4
         acceptBtn.Parent = btnContainer
-
+        
         local acceptCorner = Instance.new("UICorner")
         acceptCorner.CornerRadius = UDim.new(0, 8)
         acceptCorner.Parent = acceptBtn
-
+        
         acceptBtn.MouseEnter:Connect(function()
             acceptBtn.BackgroundColor3 = Color3.fromRGB(255, 215, 80)
         end)
         acceptBtn.MouseLeave:Connect(function()
             acceptBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
         end)
-
+        
+        -- Popup animation (fade in)
         popup.BackgroundTransparency = 0.3
         TweenService:Create(popup, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             BackgroundTransparency = 0
         }):Play()
-
+        
+        -- Also animate overlay fade in
         overlay.BackgroundTransparency = 0.8
         TweenService:Create(overlay, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             BackgroundTransparency = 0.6
         }):Play()
-
+        
+        -- Button connections
         acceptBtn.MouseButton1Click:Connect(function()
             if onAccept then onAccept() end
+            -- Cleanup
             TweenService:Create(blur, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Size = 0
             }):Play()
@@ -197,9 +214,10 @@ return function(hub)
             popupGui:Destroy()
             blur:Destroy()
         end)
-
+        
         declineBtn.MouseButton1Click:Connect(function()
             if onDecline then onDecline() end
+            -- Cleanup
             TweenService:Create(blur, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Size = 0
             }):Play()
@@ -213,7 +231,7 @@ return function(hub)
             popupGui:Destroy()
             blur:Destroy()
         end)
-
+        
         return {
             Accept = acceptBtn,
             Decline = declineBtn,
@@ -469,9 +487,7 @@ return function(hub)
 
     mainTab:Section("Movement Controls")
 
-    local jumpPowerValues = {50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500}
-
-    mainTab:Slider("Jump Power", jumpPowerValues, 1)
+    mainTab:Slider("Jump Power", {50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500}, 1)
 
     mainTab:Toggle(
         "Freeze Position [ON]",
@@ -533,8 +549,7 @@ return function(hub)
         end
     end)
 
-    local flySpeedValues = {10, 25, 50, 75, 100, 150, 200, 300, 400, 500}
-    mainTab:Slider("Fly Speed", flySpeedValues, 3)
+    mainTab:Slider("Fly Speed", {10, 25, 50, 75, 100, 150, 200, 300, 400, 500}, 3)
 
     mainTab:Divider()
     mainTab:Section("Auto Features")
@@ -564,12 +579,14 @@ return function(hub)
             "Farm Last Zone [ON]",
             "Farm Last Zone [OFF]",
             function()
+                -- Show popup in middle of screen with blur
                 createPopup(
                     "⚠️ Warning",
                     "Farm Last Zone may cause you to get kicked from the game.\nProceed with caution.",
                     "✅ Accept (Enable)",
                     "❌ Decline (Disable)",
                     function()
+                        -- ACCEPT - Enable the feature
                         playerState.FarmLastZone = true
                         farmLastZoneEnabled = true
                         startFarmLastZone()
@@ -579,6 +596,7 @@ return function(hub)
                         end
                     end,
                     function()
+                        -- DECLINE - Disable the feature
                         playerState.FarmLastZone = false
                         farmLastZoneEnabled = false
                         hub:Notify("Farm Last Zone", "Disabled!")
@@ -672,18 +690,4 @@ return function(hub)
     hub:Notify("Support Needed!", "Join our Discord for updates and help: discord.gg/2WesZEXwrH", 10)
     hub:Notify("System Note", "Anti-AFK is auto-toggled. Enjoy 24/7 farming!", 5)
     hub:Notify("Keyboard Escape", "Hub loaded successfully!", 3)
-
-    -- ============================================
-    -- Return state for external access
-    -- ============================================
-
-    return {
-        playerState = playerState,
-        keybinds = keybinds,
-        toggleFreeze = toggleFreeze,
-        startFly = startFly,
-        startAutoRebirth = startAutoRebirth,
-        startFarmLastZone = startFarmLastZone,
-        createPopup = createPopup
-    }
 end
