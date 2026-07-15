@@ -1,7 +1,7 @@
 return function(hub)
     --[[
         AquaScriptsYT - Keyboard Escape
-        Universal Script with Auto Rebirth, Auto Win (Smooth Travel), Fly, Noclip & More
+        Universal Script with Auto Rebirth, Farm Last Zone, Fly, Noclip & More
     ]]
 
     local Players = game:GetService("Players")
@@ -21,11 +21,7 @@ return function(hub)
         Frozen = false,
         AutoWalking = false,
         AutoRebirth = false,
-        FarmLastZone = false,
-        AutoWin = false,
-        WinPos = Vector3.new(-14001, 765, 3067),
-        WinSpeed = 300,
-        WinHeight = 900
+        FarmLastZone = false
     }
 
     local keybinds = {
@@ -367,100 +363,95 @@ return function(hub)
     end
 
     -- ============================================
-    -- AUTO WIN (Smooth Travel) - Tween to destination
+    -- Farm Last Zone (Wins Farm)
     -- ============================================
 
-    local function startAutoWin()
+    local farmLastZoneRunning = false
+    local lastZonePosition = CFrame.new(-14001, 765, 3067)
+    local teleportDistance = 250
+    local heartbeatConnection = nil
+
+    local function startFarmLastZone()
+        if farmLastZoneRunning then return end
+        farmLastZoneRunning = true
+
         task.spawn(function()
-            while playerState.AutoWin do
-                local char = LocalPlayer.Character
-                local root = char and char:FindFirstChild("HumanoidRootPart")
+            while playerState.FarmLastZone do
+                pcall(function()
+                    local char = LocalPlayer.Character
+                    if not char then return end
 
-                if root and playerState.WinPos then
-                    local dist = (root.Position - playerState.WinPos).Magnitude
+                    local root = char:FindFirstChild("HumanoidRootPart")
+                    if not root then return end
 
-                    if dist > 5 then
-                        -- Enable Fly and Noclip during travel
-                        if not playerState.Flying then
-                            playerState.Flying = true
-                            startFly()
+                    for _, part in ipairs(char:GetDescendants()) do
+                        if part:IsA("BasePart") and part.CanCollide then
+                            part.CanCollide = false
                         end
-                        local oldNoclip = playerState.Noclip
-                        playerState.Noclip = true
-
-                        -- Rise up first
-                        hub:Notify("Auto Win", "Rising up...")
-                        local riseHeight = playerState.WinHeight
-                        local riseStart = root.CFrame
-                        local riseEnd = riseStart * CFrame.new(0, riseHeight, 0)
-
-                        for i = 0, 1, 0.05 do
-                            if not playerState.AutoWin or not root.Parent then break end
-                            root.CFrame = riseStart:Lerp(riseEnd, i)
-                            task.wait(0.02)
-                        end
-
-                        if not playerState.AutoWin or not root.Parent then
-                            playerState.Noclip = oldNoclip
-                            return
-                        end
-                        task.wait(0.2)
-
-                        -- Horizontal travel
-                        hub:Notify("Auto Win", "Traveling...")
-                        local startCF = root.CFrame
-                        local targetPos = Vector3.new(playerState.WinPos.X, root.Position.Y, playerState.WinPos.Z)
-                        local targetCF = CFrame.new(targetPos, Vector3.new(targetPos.X, targetPos.Y, targetPos.Z + 1))
-
-                        local distance = (root.Position - targetPos).Magnitude
-                        local steps = math.floor(distance / (playerState.WinSpeed / 30))
-
-                        for i = 1, steps do
-                            if not playerState.AutoWin or not root.Parent then break end
-                            root.CFrame = startCF:Lerp(targetCF, i / steps)
-                            task.wait(0.03)
-                        end
-
-                        if not playerState.AutoWin or not root.Parent then
-                            playerState.Noclip = oldNoclip
-                            return
-                        end
-                        task.wait(0.2)
-
-                        -- Descend
-                        hub:Notify("Auto Win", "Descending...")
-                        local currentCF = root.CFrame
-                        local finalCF = CFrame.new(playerState.WinPos)
-
-                        for i = 0, 1, 0.01 do
-                            if not playerState.AutoWin or not root.Parent then break end
-                            root.CFrame = currentCF:Lerp(finalCF, i)
-                            task.wait(0.01)
-                        end
-
-                        if root.Parent then
-                            root.CFrame = finalCF
-                        end
-
-                        playerState.Noclip = oldNoclip
-                        playerState.Flying = false
-                        -- Note: Fly will stop automatically via the fly loop
-
-                        hub:Notify("Auto Win", "Arrived! Resetting in 3s...")
-
-                        task.wait(3)
-
-                        -- Reset character to spawn
-                        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                        if hum then hum.Health = 0 end
-
-                        hub:Notify("Auto Win", "Resetting... Next loop in 5s.")
-
-                        task.wait(5)
                     end
-                end
+
+                    local distance = (lastZonePosition.Position - root.Position).Magnitude
+
+                    if distance < 0.5 then
+                        root.CFrame = lastZonePosition
+                        farmLastZoneRunning = false
+                        return
+                    end
+
+                    root.AssemblyLinearVelocity = Vector3.zero
+
+                    local function teleportLoop(deltaTime)
+                        if not playerState.FarmLastZone then
+                            if heartbeatConnection then
+                                heartbeatConnection:Disconnect()
+                                heartbeatConnection = nil
+                            end
+                            farmLastZoneRunning = false
+                            return
+                        end
+
+                        local char = LocalPlayer.Character
+                        if not char then
+                            if heartbeatConnection then
+                                heartbeatConnection:Disconnect()
+                                heartbeatConnection = nil
+                            end
+                            farmLastZoneRunning = false
+                            return
+                        end
+
+                        local root = char:FindFirstChild("HumanoidRootPart")
+                        if not root then
+                            if heartbeatConnection then
+                                heartbeatConnection:Disconnect()
+                                heartbeatConnection = nil
+                            end
+                            farmLastZoneRunning = false
+                            return
+                        end
+
+                        local currentDist = (lastZonePosition.Position - root.Position).Magnitude
+
+                        if currentDist < 0.5 then
+                            root.CFrame = lastZonePosition
+                            if heartbeatConnection then
+                                heartbeatConnection:Disconnect()
+                                heartbeatConnection = nil
+                            end
+                            farmLastZoneRunning = false
+                            return
+                        end
+
+                        root.AssemblyLinearVelocity = Vector3.zero
+                        local currentCF = root.CFrame
+                        root.CFrame = currentCF:Lerp(lastZonePosition, math.min(teleportDistance * deltaTime / currentDist, 1))
+                    end
+
+                    heartbeatConnection = RunService.Heartbeat:Connect(teleportLoop)
+                end)
                 task.wait(0.1)
             end
+            farmLastZoneRunning = false
         end)
     end
 
@@ -564,52 +555,54 @@ return function(hub)
         end
     )
 
-    -- AUTO WIN (Smooth Travel) with Warning Popup
-    local autoWinBtn = nil
-    local autoWinEnabled = false
+    -- Farm Last Zone Toggle with Warning Popup
+    local farmLastZoneBtn = nil
+    local farmLastZoneEnabled = false
 
-    mainTab:Toggle(
-        "Auto Win (Smooth Travel) [ON]",
-        "Auto Win (Smooth Travel) [OFF]",
-        function()
-            createPopup(
-                "⚠️ Warning",
-                "Auto Win uses smooth travel to bypass anti-cheat.\nMay cause you to get kicked from the game.\nProceed with caution.",
-                "✅ Accept (Enable)",
-                "❌ Decline (Disable)",
-                function()
-                    playerState.AutoWin = true
-                    autoWinEnabled = true
-                    startAutoWin()
-                    hub:Notify("Auto Win", "Enabled! (Use at your own risk)")
-                    if autoWinBtn and autoWinBtn.SetState then
-                        autoWinBtn:SetState(true)
+    local function createFarmLastZoneToggle()
+        farmLastZoneBtn = mainTab:Toggle(
+            "Farm Last Zone [ON]",
+            "Farm Last Zone [OFF]",
+            function()
+                createPopup(
+                    "⚠️ Warning",
+                    "Farm Last Zone may cause you to get kicked from the game.\nProceed with caution.",
+                    "✅ Accept (Enable)",
+                    "❌ Decline (Disable)",
+                    function()
+                        playerState.FarmLastZone = true
+                        farmLastZoneEnabled = true
+                        startFarmLastZone()
+                        hub:Notify("Farm Last Zone", "Enabled! (Use at your own risk)")
+                        if farmLastZoneBtn and farmLastZoneBtn.SetState then
+                            farmLastZoneBtn:SetState(true)
+                        end
+                    end,
+                    function()
+                        playerState.FarmLastZone = false
+                        farmLastZoneEnabled = false
+                        hub:Notify("Farm Last Zone", "Disabled!")
+                        if farmLastZoneBtn and farmLastZoneBtn.SetState then
+                            farmLastZoneBtn:SetState(false)
+                        end
                     end
-                end,
-                function()
-                    playerState.AutoWin = false
-                    autoWinEnabled = false
-                    hub:Notify("Auto Win", "Disabled!")
-                    if autoWinBtn and autoWinBtn.SetState then
-                        autoWinBtn:SetState(false)
-                    end
+                )
+                return false
+            end,
+            function()
+                playerState.FarmLastZone = false
+                farmLastZoneEnabled = false
+                if heartbeatConnection then
+                    heartbeatConnection:Disconnect()
+                    heartbeatConnection = nil
                 end
-            )
-            return false
-        end,
-        function()
-            playerState.AutoWin = false
-            autoWinEnabled = false
-            hub:Notify("Auto Win", "Stopped!")
-        end
-    )
+                farmLastZoneRunning = false
+                hub:Notify("Farm Last Zone", "Stopped!")
+            end
+        )
+    end
 
-    mainTab:Divider()
-    mainTab:Section("Win Settings")
-
-    mainTab:Slider("Win Speed", {50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000}, 4)
-
-    mainTab:Slider("Rise Height", {100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1200, 1500, 2000}, 6)
+    createFarmLastZoneToggle()
 
     -- ============================================
     -- Gamepasses Tab
@@ -690,7 +683,7 @@ return function(hub)
         toggleFreeze = toggleFreeze,
         startFly = startFly,
         startAutoRebirth = startAutoRebirth,
-        startAutoWin = startAutoWin,
+        startFarmLastZone = startFarmLastZone,
         createPopup = createPopup
     }
 end
