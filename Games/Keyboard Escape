@@ -1,7 +1,7 @@
 return function(hub)
     --[[
         AquaScriptsYT - Keyboard Escape
-        Universal Script with Auto Rebirth & Farm Last Zone
+        Universal Script with Auto Rebirth, Auto Win (Smooth Travel), Fly, Noclip & More
     ]]
 
     local Players = game:GetService("Players")
@@ -21,7 +21,11 @@ return function(hub)
         Frozen = false,
         AutoWalking = false,
         AutoRebirth = false,
-        FarmLastZone = false
+        FarmLastZone = false,
+        AutoWin = false,
+        WinPos = Vector3.new(-14001, 765, 3067),
+        WinSpeed = 300,
+        WinHeight = 900
     }
 
     local keybinds = {
@@ -41,27 +45,23 @@ return function(hub)
 
     local function createPopup(title, message, acceptText, declineText, onAccept, onDecline)
         local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-        
-        -- Create a ScreenGui for the popup
+
         local popupGui = Instance.new("ScreenGui")
         popupGui.Name = "PopupGui"
         popupGui.ResetOnSpawn = false
         popupGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         popupGui.DisplayOrder = 999
         popupGui.Parent = playerGui
-        
-        -- Blur background (applies to entire screen)
+
         local blur = Instance.new("BlurEffect")
         blur.Name = "PopupBlur"
         blur.Size = 0
         blur.Parent = game:GetService("Lighting")
-        
-        -- Tween blur in
+
         TweenService:Create(blur, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             Size = 20
         }):Play()
-        
-        -- Full screen overlay
+
         local overlay = Instance.new("Frame")
         overlay.Name = "PopupOverlay"
         overlay.Size = UDim2.new(1, 0, 1, 0)
@@ -71,8 +71,7 @@ return function(hub)
         overlay.BorderSizePixel = 0
         overlay.ZIndex = 1
         overlay.Parent = popupGui
-        
-        -- Main popup frame (centered)
+
         local popup = Instance.new("Frame")
         popup.Name = "PopupFrame"
         popup.Size = UDim2.fromOffset(400, 220)
@@ -82,19 +81,16 @@ return function(hub)
         popup.ClipsDescendants = false
         popup.ZIndex = 2
         popup.Parent = overlay
-        
-        -- Corner
+
         local corner = Instance.new("UICorner")
         corner.CornerRadius = UDim.new(0, 12)
         corner.Parent = popup
-        
-        -- Stroke
+
         local stroke = Instance.new("UIStroke")
         stroke.Color = Color3.fromRGB(255, 200, 50)
         stroke.Thickness = 2
         stroke.Parent = popup
-        
-        -- Title
+
         local titleLabel = Instance.new("TextLabel")
         titleLabel.Size = UDim2.new(1, -30, 0, 40)
         titleLabel.Position = UDim2.new(0, 15, 0, 15)
@@ -106,8 +102,7 @@ return function(hub)
         titleLabel.TextXAlignment = Enum.TextXAlignment.Left
         titleLabel.ZIndex = 3
         titleLabel.Parent = popup
-        
-        -- Message
+
         local messageLabel = Instance.new("TextLabel")
         messageLabel.Size = UDim2.new(1, -30, 0, 50)
         messageLabel.Position = UDim2.new(0, 15, 0, 60)
@@ -120,8 +115,7 @@ return function(hub)
         messageLabel.TextXAlignment = Enum.TextXAlignment.Left
         messageLabel.ZIndex = 3
         messageLabel.Parent = popup
-        
-        -- Warning icon
+
         local icon = Instance.new("TextLabel")
         icon.Size = UDim2.fromOffset(40, 40)
         icon.Position = UDim2.new(1, -55, 0, 15)
@@ -130,16 +124,14 @@ return function(hub)
         icon.TextSize = 30
         icon.ZIndex = 3
         icon.Parent = popup
-        
-        -- Button container
+
         local btnContainer = Instance.new("Frame")
         btnContainer.Size = UDim2.new(1, -30, 0, 44)
         btnContainer.Position = UDim2.new(0, 15, 1, -54)
         btnContainer.BackgroundTransparency = 1
         btnContainer.ZIndex = 3
         btnContainer.Parent = popup
-        
-        -- Decline button (left)
+
         local declineBtn = Instance.new("TextButton")
         declineBtn.Size = UDim2.new(0.45, -5, 1, 0)
         declineBtn.Position = UDim2.new(0, 0, 0, 0)
@@ -150,19 +142,18 @@ return function(hub)
         declineBtn.TextSize = 15
         declineBtn.ZIndex = 4
         declineBtn.Parent = btnContainer
-        
+
         local declineCorner = Instance.new("UICorner")
         declineCorner.CornerRadius = UDim.new(0, 8)
         declineCorner.Parent = declineBtn
-        
+
         declineBtn.MouseEnter:Connect(function()
             declineBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
         end)
         declineBtn.MouseLeave:Connect(function()
             declineBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
         end)
-        
-        -- Accept button (right)
+
         local acceptBtn = Instance.new("TextButton")
         acceptBtn.Size = UDim2.new(0.45, -5, 1, 0)
         acceptBtn.Position = UDim2.new(0.55, 5, 0, 0)
@@ -173,34 +164,30 @@ return function(hub)
         acceptBtn.TextSize = 15
         acceptBtn.ZIndex = 4
         acceptBtn.Parent = btnContainer
-        
+
         local acceptCorner = Instance.new("UICorner")
         acceptCorner.CornerRadius = UDim.new(0, 8)
         acceptCorner.Parent = acceptBtn
-        
+
         acceptBtn.MouseEnter:Connect(function()
             acceptBtn.BackgroundColor3 = Color3.fromRGB(255, 215, 80)
         end)
         acceptBtn.MouseLeave:Connect(function()
             acceptBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
         end)
-        
-        -- Popup animation (fade in)
+
         popup.BackgroundTransparency = 0.3
         TweenService:Create(popup, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             BackgroundTransparency = 0
         }):Play()
-        
-        -- Also animate overlay fade in
+
         overlay.BackgroundTransparency = 0.8
         TweenService:Create(overlay, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             BackgroundTransparency = 0.6
         }):Play()
-        
-        -- Button connections
+
         acceptBtn.MouseButton1Click:Connect(function()
             if onAccept then onAccept() end
-            -- Cleanup
             TweenService:Create(blur, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Size = 0
             }):Play()
@@ -214,10 +201,9 @@ return function(hub)
             popupGui:Destroy()
             blur:Destroy()
         end)
-        
+
         declineBtn.MouseButton1Click:Connect(function()
             if onDecline then onDecline() end
-            -- Cleanup
             TweenService:Create(blur, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Size = 0
             }):Play()
@@ -231,7 +217,7 @@ return function(hub)
             popupGui:Destroy()
             blur:Destroy()
         end)
-        
+
         return {
             Accept = acceptBtn,
             Decline = declineBtn,
@@ -381,95 +367,100 @@ return function(hub)
     end
 
     -- ============================================
-    -- Farm Last Zone (Wins Farm)
+    -- AUTO WIN (Smooth Travel) - Tween to destination
     -- ============================================
 
-    local farmLastZoneRunning = false
-    local lastZonePosition = CFrame.new(-14001, 765, 3067)
-    local teleportDistance = 250
-    local heartbeatConnection = nil
-
-    local function startFarmLastZone()
-        if farmLastZoneRunning then return end
-        farmLastZoneRunning = true
-
+    local function startAutoWin()
         task.spawn(function()
-            while playerState.FarmLastZone do
-                pcall(function()
-                    local char = LocalPlayer.Character
-                    if not char then return end
+            while playerState.AutoWin do
+                local char = LocalPlayer.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
 
-                    local root = char:FindFirstChild("HumanoidRootPart")
-                    if not root then return end
+                if root and playerState.WinPos then
+                    local dist = (root.Position - playerState.WinPos).Magnitude
 
-                    for _, part in ipairs(char:GetDescendants()) do
-                        if part:IsA("BasePart") and part.CanCollide then
-                            part.CanCollide = false
+                    if dist > 5 then
+                        -- Enable Fly and Noclip during travel
+                        if not playerState.Flying then
+                            playerState.Flying = true
+                            startFly()
                         end
-                    end
+                        local oldNoclip = playerState.Noclip
+                        playerState.Noclip = true
 
-                    local distance = (lastZonePosition.Position - root.Position).Magnitude
+                        -- Rise up first
+                        hub:Notify("Auto Win", "Rising up...")
+                        local riseHeight = playerState.WinHeight
+                        local riseStart = root.CFrame
+                        local riseEnd = riseStart * CFrame.new(0, riseHeight, 0)
 
-                    if distance < 0.5 then
-                        root.CFrame = lastZonePosition
-                        farmLastZoneRunning = false
-                        return
-                    end
+                        for i = 0, 1, 0.05 do
+                            if not playerState.AutoWin or not root.Parent then break end
+                            root.CFrame = riseStart:Lerp(riseEnd, i)
+                            task.wait(0.02)
+                        end
 
-                    root.AssemblyLinearVelocity = Vector3.zero
-
-                    local function teleportLoop(deltaTime)
-                        if not playerState.FarmLastZone then
-                            if heartbeatConnection then
-                                heartbeatConnection:Disconnect()
-                                heartbeatConnection = nil
-                            end
-                            farmLastZoneRunning = false
+                        if not playerState.AutoWin or not root.Parent then
+                            playerState.Noclip = oldNoclip
                             return
                         end
+                        task.wait(0.2)
 
-                        local char = LocalPlayer.Character
-                        if not char then
-                            if heartbeatConnection then
-                                heartbeatConnection:Disconnect()
-                                heartbeatConnection = nil
-                            end
-                            farmLastZoneRunning = false
-                            return
+                        -- Horizontal travel
+                        hub:Notify("Auto Win", "Traveling...")
+                        local startCF = root.CFrame
+                        local targetPos = Vector3.new(playerState.WinPos.X, root.Position.Y, playerState.WinPos.Z)
+                        local targetCF = CFrame.new(targetPos, Vector3.new(targetPos.X, targetPos.Y, targetPos.Z + 1))
+
+                        local distance = (root.Position - targetPos).Magnitude
+                        local steps = math.floor(distance / (playerState.WinSpeed / 30))
+
+                        for i = 1, steps do
+                            if not playerState.AutoWin or not root.Parent then break end
+                            root.CFrame = startCF:Lerp(targetCF, i / steps)
+                            task.wait(0.03)
                         end
 
-                        local root = char:FindFirstChild("HumanoidRootPart")
-                        if not root then
-                            if heartbeatConnection then
-                                heartbeatConnection:Disconnect()
-                                heartbeatConnection = nil
-                            end
-                            farmLastZoneRunning = false
+                        if not playerState.AutoWin or not root.Parent then
+                            playerState.Noclip = oldNoclip
                             return
                         end
+                        task.wait(0.2)
 
-                        local currentDist = (lastZonePosition.Position - root.Position).Magnitude
-
-                        if currentDist < 0.5 then
-                            root.CFrame = lastZonePosition
-                            if heartbeatConnection then
-                                heartbeatConnection:Disconnect()
-                                heartbeatConnection = nil
-                            end
-                            farmLastZoneRunning = false
-                            return
-                        end
-
-                        root.AssemblyLinearVelocity = Vector3.zero
+                        -- Descend
+                        hub:Notify("Auto Win", "Descending...")
                         local currentCF = root.CFrame
-                        root.CFrame = currentCF:Lerp(lastZonePosition, math.min(teleportDistance * deltaTime / currentDist, 1))
-                    end
+                        local finalCF = CFrame.new(playerState.WinPos)
 
-                    heartbeatConnection = RunService.Heartbeat:Connect(teleportLoop)
-                end)
+                        for i = 0, 1, 0.01 do
+                            if not playerState.AutoWin or not root.Parent then break end
+                            root.CFrame = currentCF:Lerp(finalCF, i)
+                            task.wait(0.01)
+                        end
+
+                        if root.Parent then
+                            root.CFrame = finalCF
+                        end
+
+                        playerState.Noclip = oldNoclip
+                        playerState.Flying = false
+                        -- Note: Fly will stop automatically via the fly loop
+
+                        hub:Notify("Auto Win", "Arrived! Resetting in 3s...")
+
+                        task.wait(3)
+
+                        -- Reset character to spawn
+                        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                        if hum then hum.Health = 0 end
+
+                        hub:Notify("Auto Win", "Resetting... Next loop in 5s.")
+
+                        task.wait(5)
+                    end
+                end
                 task.wait(0.1)
             end
-            farmLastZoneRunning = false
         end)
     end
 
@@ -487,7 +478,9 @@ return function(hub)
 
     mainTab:Section("Movement Controls")
 
-    mainTab:Slider("Jump Power", {50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500}, 1)
+    local jumpPowerValues = {50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500}
+
+    mainTab:Slider("Jump Power", jumpPowerValues, 1)
 
     mainTab:Toggle(
         "Freeze Position [ON]",
@@ -549,7 +542,8 @@ return function(hub)
         end
     end)
 
-    mainTab:Slider("Fly Speed", {10, 25, 50, 75, 100, 150, 200, 300, 400, 500}, 3)
+    local flySpeedValues = {10, 25, 50, 75, 100, 150, 200, 300, 400, 500}
+    mainTab:Slider("Fly Speed", flySpeedValues, 3)
 
     mainTab:Divider()
     mainTab:Section("Auto Features")
@@ -570,57 +564,52 @@ return function(hub)
         end
     )
 
-    -- Farm Last Zone Toggle with Warning Popup
-    local farmLastZoneBtn = nil
-    local farmLastZoneEnabled = false
+    -- AUTO WIN (Smooth Travel) with Warning Popup
+    local autoWinBtn = nil
+    local autoWinEnabled = false
 
-    local function createFarmLastZoneToggle()
-        farmLastZoneBtn = mainTab:Toggle(
-            "Farm Last Zone [ON]",
-            "Farm Last Zone [OFF]",
-            function()
-                -- Show popup in middle of screen with blur
-                createPopup(
-                    "⚠️ Warning",
-                    "Farm Last Zone may cause you to get kicked from the game.\nProceed with caution.",
-                    "✅ Accept (Enable)",
-                    "❌ Decline (Disable)",
-                    function()
-                        -- ACCEPT - Enable the feature
-                        playerState.FarmLastZone = true
-                        farmLastZoneEnabled = true
-                        startFarmLastZone()
-                        hub:Notify("Farm Last Zone", "Enabled! (Use at your own risk)")
-                        if farmLastZoneBtn and farmLastZoneBtn.SetState then
-                            farmLastZoneBtn:SetState(true)
-                        end
-                    end,
-                    function()
-                        -- DECLINE - Disable the feature
-                        playerState.FarmLastZone = false
-                        farmLastZoneEnabled = false
-                        hub:Notify("Farm Last Zone", "Disabled!")
-                        if farmLastZoneBtn and farmLastZoneBtn.SetState then
-                            farmLastZoneBtn:SetState(false)
-                        end
+    mainTab:Toggle(
+        "Auto Win (Smooth Travel) [ON]",
+        "Auto Win (Smooth Travel) [OFF]",
+        function()
+            createPopup(
+                "⚠️ Warning",
+                "Auto Win uses smooth travel to bypass anti-cheat.\nMay cause you to get kicked from the game.\nProceed with caution.",
+                "✅ Accept (Enable)",
+                "❌ Decline (Disable)",
+                function()
+                    playerState.AutoWin = true
+                    autoWinEnabled = true
+                    startAutoWin()
+                    hub:Notify("Auto Win", "Enabled! (Use at your own risk)")
+                    if autoWinBtn and autoWinBtn.SetState then
+                        autoWinBtn:SetState(true)
                     end
-                )
-                return false
-            end,
-            function()
-                playerState.FarmLastZone = false
-                farmLastZoneEnabled = false
-                if heartbeatConnection then
-                    heartbeatConnection:Disconnect()
-                    heartbeatConnection = nil
+                end,
+                function()
+                    playerState.AutoWin = false
+                    autoWinEnabled = false
+                    hub:Notify("Auto Win", "Disabled!")
+                    if autoWinBtn and autoWinBtn.SetState then
+                        autoWinBtn:SetState(false)
+                    end
                 end
-                farmLastZoneRunning = false
-                hub:Notify("Farm Last Zone", "Stopped!")
-            end
-        )
-    end
+            )
+            return false
+        end,
+        function()
+            playerState.AutoWin = false
+            autoWinEnabled = false
+            hub:Notify("Auto Win", "Stopped!")
+        end
+    )
 
-    createFarmLastZoneToggle()
+    mainTab:Divider()
+    mainTab:Section("Win Settings")
+
+    mainTab:Slider("Win Speed", {50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000}, 4)
+
+    mainTab:Slider("Rise Height", {100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1200, 1500, 2000}, 6)
 
     -- ============================================
     -- Gamepasses Tab
@@ -690,4 +679,18 @@ return function(hub)
     hub:Notify("Support Needed!", "Join our Discord for updates and help: discord.gg/2WesZEXwrH", 10)
     hub:Notify("System Note", "Anti-AFK is auto-toggled. Enjoy 24/7 farming!", 5)
     hub:Notify("Keyboard Escape", "Hub loaded successfully!", 3)
+
+    -- ============================================
+    -- Return state for external access
+    -- ============================================
+
+    return {
+        playerState = playerState,
+        keybinds = keybinds,
+        toggleFreeze = toggleFreeze,
+        startFly = startFly,
+        startAutoRebirth = startAutoRebirth,
+        startAutoWin = startAutoWin,
+        createPopup = createPopup
+    }
 end
